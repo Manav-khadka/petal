@@ -17,6 +17,7 @@ public final class AppState {
     public var notes: [Note] = []
     public var backupStatus: BackupStatus = .backedUp(Date())
     public var activeControllers: [Note.ID: NotePanelController] = [:]
+    public var activeViewModels: [Note.ID: NoteViewModel] = [:]
     public var areNotesHidden: Bool = false
 
     public let menuBarController = MenuBarController()
@@ -60,13 +61,58 @@ public final class AppState {
 
     public func loadNotes() async {
         do {
-            notes = try await repository.fetchAll()
+            let loaded = try await repository.fetchAll()
+            // Enforce rule: at most ONE empty untitled note exists
+            var foundEmptyUntitled = false
+            var cleaned: [Note] = []
+            for note in loaded {
+                let isEmptyUntitled = !note.isTrash && !note.isArchived &&
+                    note.title.trimmingCharacters(in: .whitespaces).isEmpty &&
+                    note.body.trimmingCharacters(in: .whitespaces).isEmpty &&
+                    note.checklist.isEmpty &&
+                    note.voiceClip == nil &&
+                    note.timerSession == nil &&
+                    note.reminder == nil
+
+                if isEmptyUntitled {
+                    if !foundEmptyUntitled {
+                        foundEmptyUntitled = true
+                        cleaned.append(note)
+                    } else {
+                        Task { [repository] in
+                            try? await repository.delete(note.id)
+                        }
+                    }
+                } else {
+                    cleaned.append(note)
+                }
+            }
+            notes = cleaned
         } catch {
             notes = []
         }
     }
 
     public func createNewNote(title: String = "", body: String = "") {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+        let trimmedBody = body.trimmingCharacters(in: .whitespaces)
+
+        // Enforce rule: only ONE untitled/empty note is allowed
+        if trimmedTitle.isEmpty && trimmedBody.isEmpty {
+            if let existingUntitled = notes.first(where: {
+                !$0.isTrash && !$0.isArchived &&
+                $0.title.trimmingCharacters(in: .whitespaces).isEmpty &&
+                $0.body.trimmingCharacters(in: .whitespaces).isEmpty &&
+                $0.checklist.isEmpty &&
+                $0.voiceClip == nil &&
+                $0.timerSession == nil &&
+                $0.reminder == nil
+            }) {
+                bringNoteToFront(existingUntitled.id)
+                return
+            }
+        }
+
         guard let screen = NSScreen.main else { return }
         let visible = screen.visibleFrame
 
@@ -92,9 +138,42 @@ public final class AppState {
 
     public func openFloatingNote(_ note: Note) {
         if let existing = activeControllers[note.id] {
+            if let vm = activeViewModels[note.id], vm.note.isCollapsed {
+                vm.toggleCollapse()
+            }
+            existing.panel?.orderFrontRegardless()
             existing.panel?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
             return
         }
+
+        guard let screen = NSScreen.main else { return }
+        let visible = screen.visibleFrame
+
+        let initialWidth = max(NotePanelController.minimumExpandedWidth, note.width)
+        let initialHeight = max(NotePanelController.minimumExpandedHeight, note.height)
+
+        var posX = note.frameX
+        var posY = note.frameY
+
+        // Ensure note is placed safely inside the visible screen bounds
+        if posX < visible.minX || posX > (visible.maxX - 100) ||
+           posY < visible.minY || posY > (visible.maxY - 50) {
+            let offset = CGFloat(activeControllers.count * 25)
+            posX = min(visible.minX + 120 + offset, visible.maxX - initialWidth - 20)
+            posY = max(visible.maxY - initialHeight - 80 - offset, visible.minY + 20)
+            if let idx = notes.firstIndex(where: { $0.id == note.id }) {
+                notes[idx].frameX = posX
+                notes[idx].frameY = posY
+            }
+        }
+
+        let frame = CGRect(
+            x: posX,
+            y: posY,
+            width: initialWidth,
+            height: initialHeight
+        )
 
         let controller = NotePanelController(noteID: note.id)
         activeControllers[note.id] = controller
@@ -104,6 +183,14 @@ public final class AppState {
             repository: repository,
             notificationScheduler: notificationScheduler
         )
+        activeViewModels[note.id] = viewModel
+
+        viewModel.onNoteChanged = { [weak self] updatedNote in
+            guard let self = self else { return }
+            if let idx = self.notes.firstIndex(where: { $0.id == updatedNote.id }) {
+                self.notes[idx] = updatedNote
+            }
+        }
 
         viewModel.onCollapseToggled = { [weak controller, weak viewModel] isCollapsed in
             guard let style = viewModel?.note.collapseStyle else { return }
@@ -130,13 +217,6 @@ public final class AppState {
             }
         }
 
-        let frame = CGRect(
-            x: note.frameX,
-            y: note.frameY,
-            width: max(NotePanelController.minimumExpandedWidth, note.width),
-            height: max(NotePanelController.minimumExpandedHeight, note.height)
-        )
-
         let rootView = NoteCardView(
             viewModel: viewModel,
             audioRecorder: audioRecorder,
@@ -147,6 +227,7 @@ public final class AppState {
             onClose: { [weak self, weak controller] in
                 controller?.close()
                 self?.activeControllers.removeValue(forKey: note.id)
+                self?.activeViewModels.removeValue(forKey: note.id)
             },
             onOpenStackList: { [weak self] in
                 self?.openAllNotesStackList()
@@ -177,6 +258,10 @@ public final class AppState {
             collapseStyle: note.collapseStyle,
             requiresDarkText: note.color.requiresDarkText
         )
+
+        controller.panel?.orderFrontRegardless()
+        controller.panel?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     public func bringAllToFront() {
@@ -254,10 +339,17 @@ public final class AppState {
     }
 
     public func openAllNotesStackList() {
+        for (id, vm) in activeViewModels {
+            if let idx = notes.firstIndex(where: { $0.id == id }) {
+                notes[idx] = vm.note
+            }
+        }
+
         NotesStackListController.shared.show(
             with: NotesStackListView(
                 notes: notes,
                 activeControllerIDs: Set(activeControllers.keys),
+                appState: self,
                 onSelectNote: { [weak self] noteID in
                     self?.bringNoteToFront(noteID)
                 },
@@ -284,24 +376,44 @@ public final class AppState {
     }
 
     public func bringNoteToFront(_ id: Note.ID) {
-        if let controller = activeControllers[id] {
-            if let idx = notes.firstIndex(where: { $0.id == id }), notes[idx].isCollapsed {
-                notes[idx].isCollapsed = false
-                controller.setCollapsed(false, style: notes[idx].collapseStyle, animated: true)
-                Task {
-                    try? await repository.save(notes[idx])
+        NotesStackListController.shared.hide()
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if let controller = self.activeControllers[id] {
+                if let vm = self.activeViewModels[id], vm.note.isCollapsed {
+                    vm.toggleCollapse()
+                } else if let idx = self.notes.firstIndex(where: { $0.id == id }), self.notes[idx].isCollapsed {
+                    self.notes[idx].isCollapsed = false
+                    controller.setCollapsed(false, style: self.notes[idx].collapseStyle, animated: true)
+                    Task {
+                        try? await self.repository.save(self.notes[idx])
+                    }
+                }
+                controller.panel?.orderFrontRegardless()
+                controller.panel?.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+            } else if let note = self.notes.first(where: { $0.id == id }) {
+                var n = note
+                n.isCollapsed = false
+                self.openFloatingNote(n)
+                if let controller = self.activeControllers[id] {
+                    controller.panel?.orderFrontRegardless()
+                    controller.panel?.makeKeyAndOrderFront(nil)
+                    NSApp.activate(ignoringOtherApps: true)
                 }
             }
-            controller.panel?.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-        } else if let note = notes.first(where: { $0.id == id }) {
-            var n = note
-            n.isCollapsed = false
-            openFloatingNote(n)
         }
     }
 
     public func toggleNoteCollapse(_ id: Note.ID) {
+        if let vm = activeViewModels[id] {
+            vm.toggleCollapse()
+            if let idx = notes.firstIndex(where: { $0.id == id }) {
+                notes[idx] = vm.note
+            }
+            return
+        }
         guard let idx = notes.firstIndex(where: { $0.id == id }) else { return }
         notes[idx].isCollapsed.toggle()
         let isCol = notes[idx].isCollapsed
@@ -312,17 +424,46 @@ public final class AppState {
         }
     }
 
-    public func toggleAllNotesCollapsed() {
-        let anyExpanded = notes.contains { !$0.isCollapsed && activeControllers[$0.id] != nil }
-        let targetCollapsed = anyExpanded
+    public func collapseAllNotes() {
         for idx in notes.indices {
             let note = notes[idx]
             guard activeControllers[note.id] != nil else { continue }
-            notes[idx].isCollapsed = targetCollapsed
-            activeControllers[note.id]?.setCollapsed(targetCollapsed, style: note.collapseStyle, animated: true)
+            notes[idx].isCollapsed = true
+            if let vm = activeViewModels[note.id] {
+                vm.setCollapsed(true)
+            } else {
+                activeControllers[note.id]?.setCollapsed(true, style: note.collapseStyle, animated: true)
+            }
             Task {
                 try? await repository.save(notes[idx])
             }
+        }
+    }
+
+    public func expandAllNotes() {
+        for idx in notes.indices {
+            let note = notes[idx]
+            guard activeControllers[note.id] != nil else { continue }
+            notes[idx].isCollapsed = false
+            if let vm = activeViewModels[note.id] {
+                vm.setCollapsed(false)
+            } else {
+                activeControllers[note.id]?.setCollapsed(false, style: note.collapseStyle, animated: true)
+            }
+            activeControllers[note.id]?.panel?.orderFrontRegardless()
+            Task {
+                try? await repository.save(notes[idx])
+            }
+        }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    public func toggleAllNotesCollapsed() {
+        let anyExpanded = notes.contains { !$0.isCollapsed && activeControllers[$0.id] != nil }
+        if anyExpanded {
+            collapseAllNotes()
+        } else {
+            expandAllNotes()
         }
     }
 
@@ -402,6 +543,7 @@ public final class AppState {
         }
         activeControllers[id]?.close()
         activeControllers.removeValue(forKey: id)
+        activeViewModels.removeValue(forKey: id)
         Task {
             try? await repository.delete(id)
         }
@@ -417,6 +559,7 @@ public final class AppState {
         }
         activeControllers[id]?.close()
         activeControllers.removeValue(forKey: id)
+        activeViewModels.removeValue(forKey: id)
     }
 
     private func executeCommand(_ cmd: ParsedCommand) {
@@ -454,6 +597,8 @@ public final class AppState {
         sc.onQuickOpen = { [weak self] in self?.toggleQuickOpen() }
         sc.onToggleAllNotes = { [weak self] in self?.toggleAllNotes() }
         sc.onStackList = { [weak self] in self?.openAllNotesStackList() }
+        sc.onCollapseAll = { [weak self] in self?.collapseAllNotes() }
+        sc.onExpandAll = { [weak self] in self?.expandAllNotes() }
     }
 
     private func createSampleNotes() async {

@@ -85,6 +85,7 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
         requiresDarkText: Bool = true
     ) {
         if let existing = panel {
+            existing.orderFrontRegardless()
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -135,6 +136,7 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
         hostingController.sizingOptions = []
         newPanel.contentViewController = hostingController
 
+        newPanel.orderFrontRegardless()
         newPanel.makeKeyAndOrderFront(nil)
         panel = newPanel
     }

@@ -53,6 +53,9 @@ public struct MenuBarPopoverView: View {
             // Header: Title + Search + Cloud backup icon
             headerBar
 
+            // Fast Desk Controls: Collapse All & See All
+            fastControlsBar
+
             // Next Reminder Banner (if any)
             if let reminderNote = nextReminderNote, let rem = reminderNote.reminder {
                 reminderBanner(note: reminderNote, reminder: rem)
@@ -98,6 +101,66 @@ public struct MenuBarPopoverView: View {
                     .cornerRadius(12)
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    private var fastControlsBar: some View {
+        HStack(spacing: 6) {
+            Button(action: {
+                AppState.shared.collapseAllNotes()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "capsule")
+                        .font(.system(size: 9.5, weight: .semibold))
+                    Text("Collapse All")
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                }
+                .foregroundColor(.primary.opacity(0.85))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3.5)
+                .background(Color.black.opacity(0.06))
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+            .help("Collapse all desk notes to pills (⌃⌥C)")
+
+            Button(action: {
+                AppState.shared.expandAllNotes()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "macwindow.on.rectangle")
+                        .font(.system(size: 9.5, weight: .semibold))
+                    Text("See All")
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                }
+                .foregroundColor(.primary.opacity(0.85))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3.5)
+                .background(Color.black.opacity(0.06))
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+            .help("Expand and reveal all desk notes (⌃⌥E)")
+
+            Spacer()
+
+            Button(action: {
+                AppState.shared.openAllNotesStackList()
+            }) {
+                HStack(spacing: 3) {
+                    Image(systemName: "square.stack.3d.up.fill")
+                        .font(.system(size: 9.5))
+                    Text("Stack")
+                        .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                }
+                .foregroundColor(.blue)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3.5)
+                .background(Color.blue.opacity(0.10))
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+            .help("All Notes Stack Manager (⌘L)")
         }
     }
 

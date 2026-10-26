@@ -24,8 +24,7 @@ public enum NoteStackFilter: String, CaseIterable, Identifiable {
 }
 
 public struct NotesStackListView: View {
-    public var notes: [Note]
-    public var activeControllerIDs: Set<Note.ID>
+    var appState: AppState = AppState.shared
     public var onSelectNote: (Note.ID) -> Void
     public var onToggleCollapse: (Note.ID) -> Void
     public var onNewNote: () -> Void
@@ -39,8 +38,9 @@ public struct NotesStackListView: View {
     @State private var hoveredNoteID: Note.ID?
 
     public init(
-        notes: [Note],
-        activeControllerIDs: Set<Note.ID>,
+        notes: [Note] = [],
+        activeControllerIDs: Set<Note.ID> = [],
+        appState: AppState = AppState.shared,
         onSelectNote: @escaping (Note.ID) -> Void,
         onToggleCollapse: @escaping (Note.ID) -> Void,
         onNewNote: @escaping () -> Void,
@@ -49,8 +49,7 @@ public struct NotesStackListView: View {
         onDeleteNote: @escaping (Note.ID) -> Void,
         onDismiss: @escaping () -> Void
     ) {
-        self.notes = notes
-        self.activeControllerIDs = activeControllerIDs
+        self.appState = appState
         self.onSelectNote = onSelectNote
         self.onToggleCollapse = onToggleCollapse
         self.onNewNote = onNewNote
@@ -61,16 +60,16 @@ public struct NotesStackListView: View {
     }
 
     private var filteredNotes: [Note] {
-        var list = notes.filter { !$0.isTrash && !$0.isArchived }
+        var list = appState.notes.filter { !$0.isTrash && !$0.isArchived }
 
         // Filter tab
         switch selectedFilter {
         case .all:
             break
         case .open:
-            list = list.filter { activeControllerIDs.contains($0.id) && !$0.isCollapsed }
+            list = list.filter { appState.activeControllers.keys.contains($0.id) && !$0.isCollapsed }
         case .collapsed:
-            list = list.filter { $0.isCollapsed || (activeControllerIDs.contains($0.id) && $0.isCollapsed) }
+            list = list.filter { $0.isCollapsed || (appState.activeControllers.keys.contains($0.id) && $0.isCollapsed) }
         case .tasks:
             list = list.filter { !$0.checklist.isEmpty }
         case .timers:
@@ -149,7 +148,7 @@ public struct NotesStackListView: View {
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
 
-                Text("\(notes.count)")
+                Text("\(appState.notes.count)")
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 6)
@@ -160,34 +159,60 @@ public struct NotesStackListView: View {
 
             Spacer()
 
+            // Collapse All button
+            Button(action: {
+                appState.collapseAllNotes()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "capsule")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Collapse All")
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                }
+                .foregroundColor(Color(hex: "#4B5563"))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.05))
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+            .help("Collapse all open notes to compact pills (⌃⌥C)")
+
+            // See All / Expand All button
+            Button(action: {
+                appState.expandAllNotes()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "macwindow.on.rectangle")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("See All")
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                }
+                .foregroundColor(Color(hex: "#4B5563"))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.05))
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+            .help("Expand and bring all open notes to front (⌃⌥E)")
+
             // Cascade / Unstack notes button
             Button(action: onCascadeNotes) {
                 HStack(spacing: 4) {
                     Image(systemName: "square.split.diagonal.2x2")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                     Text("Unstack")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
                 }
-                .foregroundColor(.primary.opacity(0.8))
-                .padding(.horizontal, 8)
+                .foregroundColor(Color(hex: "#4B5563"))
+                .padding(.horizontal, 7)
                 .padding(.vertical, 4)
                 .background(Color.black.opacity(0.05))
                 .cornerRadius(6)
             }
             .buttonStyle(.plain)
             .help("Cascade and unstack all open notes across the screen")
-
-            // Collapse / Expand All toggle
-            Button(action: onToggleCollapseAll) {
-                Image(systemName: "arrow.down.right.and.arrow.up.left")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.secondary)
-                    .frame(width: 24, height: 24)
-                    .background(Color.black.opacity(0.04))
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .help("Collapse / Expand all open notes")
 
             // New Note button
             Button(action: {
@@ -282,7 +307,7 @@ public struct NotesStackListView: View {
 
     private func noteRowCard(note: Note) -> some View {
         let isHovered = hoveredNoteID == note.id
-        let isOpen = activeControllerIDs.contains(note.id)
+        let isOpen = appState.activeControllers.keys.contains(note.id)
         let noteBg = Color(hex: note.color.hex)
 
         return HStack(spacing: 10) {
@@ -372,7 +397,6 @@ public struct NotesStackListView: View {
                     // Bring to front button
                     Button(action: {
                         onSelectNote(note.id)
-                        onDismiss()
                     }) {
                         Image(systemName: "arrow.up.forward.app")
                             .font(.system(size: 11, weight: .semibold))
@@ -430,7 +454,6 @@ public struct NotesStackListView: View {
         }
         .onTapGesture {
             onSelectNote(note.id)
-            onDismiss()
         }
     }
 

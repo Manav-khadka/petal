@@ -12,6 +12,8 @@ public final class GlobalShortcutManager {
     public var onQuickOpen: (() -> Void)?
     public var onToggleAllNotes: (() -> Void)?
     public var onStackList: (() -> Void)?
+    public var onCollapseAll: (() -> Void)?
+    public var onExpandAll: (() -> Void)?
 
     private init() {
         setupMonitors()
@@ -58,6 +60,18 @@ public final class GlobalShortcutManager {
         // ⌃⌥L (Control + Option + L) -> All Notes Stack List
         if flags == [.control, .option] && chars == "l" {
             onStackList?()
+            return true
+        }
+
+        // ⌃⌥C (Control + Option + C) -> Collapse All Notes to Pills
+        if flags == [.control, .option] && chars == "c" {
+            onCollapseAll?()
+            return true
+        }
+
+        // ⌃⌥E (Control + Option + E) -> Expand All Notes / See All
+        if flags == [.control, .option] && chars == "e" {
+            onExpandAll?()
             return true
         }
 

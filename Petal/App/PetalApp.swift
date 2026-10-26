@@ -62,6 +62,18 @@ struct PetalApp: App {
                     AppState.shared.openAllNotesStackList()
                 }
                 .keyboardShortcut("l", modifiers: .command)
+
+                Divider()
+
+                Button("Collapse All Notes") {
+                    AppState.shared.collapseAllNotes()
+                }
+                .keyboardShortcut("c", modifiers: [.control, .option])
+
+                Button("Expand All Notes (See All)") {
+                    AppState.shared.expandAllNotes()
+                }
+                .keyboardShortcut("e", modifiers: [.control, .option])
             }
         }
     }

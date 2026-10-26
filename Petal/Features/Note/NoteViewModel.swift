@@ -56,6 +56,7 @@ public final class NoteViewModel: Identifiable {
 
     public var onCollapseToggled: ((Bool) -> Void)?
     public var onColorChanged: ((NoteColor) -> Void)?
+    public var onNoteChanged: ((Note) -> Void)?
 
     public func setColor(_ color: NoteColor) {
         note.color = color
@@ -74,10 +75,15 @@ public final class NoteViewModel: Identifiable {
         save()
     }
 
-    public func toggleCollapse() {
-        note.isCollapsed.toggle()
+    public func setCollapsed(_ collapsed: Bool) {
+        guard note.isCollapsed != collapsed else { return }
+        note.isCollapsed = collapsed
         save()
         onCollapseToggled?(note.isCollapsed)
+    }
+
+    public func toggleCollapse() {
+        setCollapsed(!note.isCollapsed)
     }
 
     public func addChecklistItem(text: String = "") {
@@ -233,6 +239,7 @@ public final class NoteViewModel: Identifiable {
     }
 
     public func save() {
+        onNoteChanged?(note)
         Task {
             try? await repository.save(note)
         }

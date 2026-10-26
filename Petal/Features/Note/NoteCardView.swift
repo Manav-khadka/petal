@@ -27,7 +27,7 @@ public struct NoteCardView: View {
             isHoveredPeek = true
         } else {
             peekDismissTask = Task {
-                try? await Task.sleep(nanoseconds: 350_000_000)
+                try? await Task.sleep(nanoseconds: 500_000_000)
                 if !Task.isCancelled {
                     isHoveredPeek = false
                 }
@@ -170,6 +170,14 @@ public struct NoteCardView: View {
                 isHoveredPeek = false
                 viewModel.toggleCollapse()
             }
+            Divider()
+            Button("Collapse All Notes (⌃⌥C)") {
+                AppState.shared.collapseAllNotes()
+            }
+            Button("See All Notes (⌃⌥E)") {
+                AppState.shared.expandAllNotes()
+            }
+            Divider()
             Button("All Notes & Stack Manager (⌘L)") {
                 isHoveredPeek = false
                 onOpenStackList?()
@@ -228,6 +236,7 @@ public struct NoteCardView: View {
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .contentShape(Rectangle())
                 .help("All Notes (Stack Manager - ⌘L)")
 
                 // Expand button
@@ -243,6 +252,7 @@ public struct NoteCardView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .contentShape(Circle())
                 .help("Expand note (Double-click)")
             }
 
@@ -362,6 +372,29 @@ public struct NoteCardView: View {
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
             viewModel.toggleCollapse()
+        }
+        .contextMenu {
+            Button("Collapse Note") {
+                viewModel.toggleCollapse()
+            }
+            Divider()
+            Button("Collapse All Notes (⌃⌥C)") {
+                AppState.shared.collapseAllNotes()
+            }
+            Button("See All Notes (⌃⌥E)") {
+                AppState.shared.expandAllNotes()
+            }
+            Divider()
+            Button("All Notes & Stack Manager (⌘L)") {
+                onOpenStackList?()
+            }
+            Divider()
+            Button(viewModel.note.isPinned ? "Unpin Note" : "Pin Note") {
+                viewModel.togglePin()
+            }
+            Button("Close Note") {
+                onClose?()
+            }
         }
     }
 
@@ -520,6 +553,29 @@ public struct NoteCardView: View {
         )
         .onTapGesture(count: 2) {
             viewModel.toggleCollapse()
+        }
+        .contextMenu {
+            Button("Collapse Note") {
+                viewModel.toggleCollapse()
+            }
+            Divider()
+            Button("Collapse All Notes (⌃⌥C)") {
+                AppState.shared.collapseAllNotes()
+            }
+            Button("See All Notes (⌃⌥E)") {
+                AppState.shared.expandAllNotes()
+            }
+            Divider()
+            Button("All Notes & Stack Manager (⌘L)") {
+                onOpenStackList?()
+            }
+            Divider()
+            Button(viewModel.note.isPinned ? "Unpin Note" : "Pin Note") {
+                viewModel.togglePin()
+            }
+            Button("Close Note") {
+                onClose?()
+            }
         }
     }
 

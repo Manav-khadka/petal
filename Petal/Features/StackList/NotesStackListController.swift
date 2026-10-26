@@ -70,8 +70,9 @@ public final class NotesStackListController: NSObject, NSWindowDelegate {
     }
 
     public func hide() {
-        panel?.orderOut(nil)
+        guard let p = panel else { return }
         panel = nil
+        p.orderOut(nil)
     }
 
     public func windowDidResignKey(_: Notification) {
