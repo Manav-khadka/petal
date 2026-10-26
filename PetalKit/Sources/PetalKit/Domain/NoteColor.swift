@@ -2,17 +2,54 @@ import Foundation
 
 public struct NoteColor: Codable, Sendable, Hashable, Identifiable {
     public var id: String {
-        hex
+        if let customInkHex = customInkHex {
+            return "\(hex)_\(customInkHex)"
+        }
+        return hex
     }
 
     public let hex: String
     public let name: String?
     public let isCustom: Bool
+    public let customInkHex: String?
 
-    public init(hex: String, name: String? = nil, isCustom: Bool = false) {
+    public init(
+        hex: String,
+        name: String? = nil,
+        isCustom: Bool = false,
+        customInkHex: String? = nil
+    ) {
         self.hex = NoteColor.normalize(hex: hex)
         self.name = name
         self.isCustom = isCustom
+        self.customInkHex = customInkHex.map { NoteColor.normalize(hex: $0) }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case hex
+        case name
+        case isCustom
+        case customInkHex
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hex = NoteColor.normalize(hex: try container.decode(String.self, forKey: .hex))
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        isCustom = try container.decodeIfPresent(Bool.self, forKey: .isCustom) ?? false
+        if let customInk = try container.decodeIfPresent(String.self, forKey: .customInkHex) {
+            customInkHex = NoteColor.normalize(hex: customInk)
+        } else {
+            customInkHex = nil
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(hex, forKey: .hex)
+        try container.encodeIfPresent(name, forKey: .name)
+        try container.encode(isCustom, forKey: .isCustom)
+        try container.encodeIfPresent(customInkHex, forKey: .customInkHex)
     }
 
     public static let butter = NoteColor(hex: "#FFF3B0", name: "Butter")
@@ -61,12 +98,19 @@ public struct NoteColor: Codable, Sendable, Hashable, Identifiable {
 
     /// Whether text on this color should be dark
     public var requiresDarkText: Bool {
-        relativeLuminance > 0.4
+        if let customInk = customInkHex {
+            let inkColor = NoteColor(hex: customInk)
+            return inkColor.relativeLuminance < 0.5
+        }
+        return relativeLuminance > 0.4
     }
 
-    /// Deep graphite ink for light backgrounds (#1C1D21), crisp white for dark backgrounds (#F7F7F9)
+    /// Deep graphite ink for light backgrounds (#1C1D21), crisp white for dark backgrounds (#F7F7F9), or custom chosen ink
     public var inkHex: String {
-        requiresDarkText ? "#1C1D21" : "#F7F7F9"
+        if let customInk = customInkHex {
+            return NoteColor.normalize(hex: customInk)
+        }
+        return requiresDarkText ? "#1C1D21" : "#F7F7F9"
     }
 
     /// Secondary ink for subtitles, placeholders, and subtle borders
