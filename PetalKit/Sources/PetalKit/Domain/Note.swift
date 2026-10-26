@@ -56,7 +56,7 @@ public struct Note: Codable, Sendable, Hashable, Identifiable {
         frameX: Double = 100,
         frameY: Double = 100,
         width: Double = 280,
-        height: Double = 280,
+        height: Double = 220,
         folder: String = "General",
         isArchived: Bool = false,
         isTrash: Bool = false,

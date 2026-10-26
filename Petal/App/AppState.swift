@@ -130,7 +130,12 @@ public final class AppState {
             }
         }
 
-        let frame = CGRect(x: note.frameX, y: note.frameY, width: max(260, note.width), height: max(260, note.height))
+        let frame = CGRect(
+            x: note.frameX,
+            y: note.frameY,
+            width: max(NotePanelController.minimumExpandedWidth, note.width),
+            height: max(NotePanelController.minimumExpandedHeight, note.height)
+        )
 
         let rootView = NoteCardView(
             viewModel: viewModel,
@@ -154,8 +159,8 @@ public final class AppState {
                 self.notes[idx].frameX = newFrame.origin.x
                 self.notes[idx].frameY = newFrame.origin.y
                 if !self.notes[idx].isCollapsed {
-                    self.notes[idx].width = max(260, newFrame.width)
-                    self.notes[idx].height = max(260, newFrame.height)
+                    self.notes[idx].width = max(NotePanelController.minimumExpandedWidth, newFrame.width)
+                    self.notes[idx].height = max(NotePanelController.minimumExpandedHeight, newFrame.height)
                 }
                 Task {
                     try? await self.repository.save(self.notes[idx])
@@ -334,8 +339,8 @@ public final class AppState {
         for (id, controller) in activeControllers {
             guard let idx = notes.firstIndex(where: { $0.id == id }) else { continue }
             let note = notes[idx]
-            let w = max(260, note.width)
-            let h = max(260, note.height)
+            let w = max(NotePanelController.minimumExpandedWidth, note.width)
+            let h = max(NotePanelController.minimumExpandedHeight, note.height)
 
             if currentX + w > visible.maxX || currentY - h < visible.minY {
                 count += 1

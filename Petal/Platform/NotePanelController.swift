@@ -60,12 +60,15 @@ public final class WindowDragView: NSView {
 
 @MainActor
 public final class NotePanelController: NSObject, NSWindowDelegate {
+    public static let minimumExpandedWidth: CGFloat = 248
+    public static let minimumExpandedHeight: CGFloat = 150
+
     public let noteID: Note.ID
     public private(set) var panel: NotePanel?
     public var onFrameChanged: ((CGRect) -> Void)?
     public var onEscapePressed: (() -> Void)?
     public var onAutoShrinkRequested: (() -> Void)?
-    private var expandedSize: CGSize = .init(width: 280, height: 280)
+    private var expandedSize: CGSize = .init(width: 280, height: 220)
 
     public init(noteID: Note.ID) {
         self.noteID = noteID
@@ -87,8 +90,8 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
             return
         }
 
-        let initialWidth = max(260, frame.width)
-        let initialHeight = max(260, frame.height)
+        let initialWidth = max(Self.minimumExpandedWidth, frame.width)
+        let initialHeight = max(Self.minimumExpandedHeight, frame.height)
         expandedSize = CGSize(width: initialWidth, height: initialHeight)
 
         let initialRect: NSRect
@@ -160,8 +163,8 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
             let newFrame = NSRect(x: frame.minX, y: newY, width: targetW, height: targetH)
             panel.setFrame(newFrame, display: true)
         } else {
-            let targetW = max(260, expandedSize.width)
-            let targetH = max(260, expandedSize.height)
+            let targetW = max(Self.minimumExpandedWidth, expandedSize.width)
+            let targetH = max(Self.minimumExpandedHeight, expandedSize.height)
             let newY = frame.maxY - targetH
             let newFrame = NSRect(x: frame.minX, y: newY, width: targetW, height: targetH)
             panel.setFrame(newFrame, display: true)
@@ -183,8 +186,8 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
     public func resize(by delta: CGSize) {
         guard let panel = panel else { return }
         var frame = panel.frame
-        let minW: CGFloat = 220
-        let minH: CGFloat = 200
+        let minW: CGFloat = Self.minimumExpandedWidth
+        let minH: CGFloat = Self.minimumExpandedHeight
         let newWidth = max(minW, frame.width + delta.width)
         let newHeight = max(minH, frame.height + delta.height)
 
