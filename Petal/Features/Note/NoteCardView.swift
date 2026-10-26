@@ -14,7 +14,26 @@ public struct NoteCardView: View {
     @State private var prevResizeTranslation: CGSize = .zero
     @State private var isResizeHovered: Bool = false
     @State private var isHoveredPeek: Bool = false
+    @State private var isPillHovered: Bool = false
+    @State private var isPopoverHovered: Bool = false
     @State private var peekDismissTask: Task<Void, Never>?
+
+    private func updateHoverState(pill: Bool? = nil, popover: Bool? = nil) {
+        if let pill = pill { isPillHovered = pill }
+        if let popover = popover { isPopoverHovered = popover }
+
+        peekDismissTask?.cancel()
+        if isPillHovered || isPopoverHovered {
+            isHoveredPeek = true
+        } else {
+            peekDismissTask = Task {
+                try? await Task.sleep(nanoseconds: 350_000_000)
+                if !Task.isCancelled {
+                    isHoveredPeek = false
+                }
+            }
+        }
+    }
 
     public init(
         viewModel: NoteViewModel,
@@ -130,7 +149,10 @@ public struct NoteCardView: View {
         .background(
             ZStack {
                 Capsule().fill(bg)
-                WindowDragArea()
+                WindowDragArea(onDoubleClick: {
+                    isHoveredPeek = false
+                    viewModel.toggleCollapse()
+                })
             }
         )
         .overlay(
@@ -139,7 +161,7 @@ public struct NoteCardView: View {
         )
         .shadow(color: Color.black.opacity(0.12), radius: 2.5, x: 0, y: 1.2)
         .contentShape(Rectangle())
-        .onTapGesture {
+        .onTapGesture(count: 2) {
             isHoveredPeek = false
             viewModel.toggleCollapse()
         }
@@ -162,20 +184,13 @@ public struct NoteCardView: View {
             }
         }
         .onHover { isHov in
-            peekDismissTask?.cancel()
-            if isHov {
-                isHoveredPeek = true
-            } else {
-                peekDismissTask = Task {
-                    try? await Task.sleep(nanoseconds: 200_000_000)
-                    if !Task.isCancelled {
-                        isHoveredPeek = false
-                    }
-                }
-            }
+            updateHoverState(pill: isHov)
         }
         .popover(isPresented: $isHoveredPeek, arrowEdge: .bottom) {
             collapsedHoverInfoCard(textColor: textColor, bg: bg)
+                .onHover { isHov in
+                    updateHoverState(popover: isHov)
+                }
         }
         .help(hoverTooltipSummary)
     }
@@ -185,30 +200,37 @@ public struct NoteCardView: View {
             HStack(spacing: 6) {
                 Circle()
                     .fill(Color(hex: viewModel.note.color.hex))
-                    .frame(width: 9, height: 9)
+                    .frame(width: 8.5, height: 8.5)
                     .overlay(Circle().stroke(Color.black.opacity(0.2), lineWidth: 0.8))
 
                 Text(viewModel.note.title.isEmpty ? "Untitled Note" : viewModel.note.title)
-                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundColor(textColor)
-                    .lineLimit(2)
+                    .lineLimit(1)
 
                 Spacer()
 
+                // All Notes (Stack Manager) Button
                 Button(action: {
                     isHoveredPeek = false
                     onOpenStackList?()
                 }) {
-                    Image(systemName: "square.stack.3d.up.fill")
-                        .font(.system(size: 9.5, weight: .semibold))
-                        .foregroundColor(textColor.opacity(0.75))
-                        .frame(width: 20, height: 20)
-                        .background(Color.black.opacity(0.06))
-                        .clipShape(Circle())
+                    HStack(spacing: 3.5) {
+                        Image(systemName: "square.stack.3d.up.fill")
+                            .font(.system(size: 9.5, weight: .semibold))
+                        Text("Stack")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(textColor.opacity(0.85))
+                    .padding(.horizontal, 6.5)
+                    .padding(.vertical, 3)
+                    .background(Color.black.opacity(0.08))
+                    .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .help("All Notes (Stack Manager)")
+                .help("All Notes (Stack Manager - ⌘L)")
 
+                // Expand button
                 Button(action: {
                     isHoveredPeek = false
                     viewModel.toggleCollapse()
@@ -221,7 +243,7 @@ public struct NoteCardView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help("Expand note")
+                .help("Expand note (Double-click)")
             }
 
             if !viewModel.note.previewSnippet.isEmpty {
@@ -266,30 +288,11 @@ public struct NoteCardView: View {
             }
         }
         .padding(10)
-        .frame(width: 210)
-        .background(bg.opacity(0.96))
-        .contentShape(Rectangle())
-        .onTapGesture {
+        .frame(width: 220)
+        .background(bg.opacity(0.97))
+        .onTapGesture(count: 2) {
             isHoveredPeek = false
             viewModel.toggleCollapse()
-        }
-        .contextMenu {
-            Button("Expand Note") {
-                isHoveredPeek = false
-                viewModel.toggleCollapse()
-            }
-            Button("All Notes & Stack Manager (⌘L)") {
-                isHoveredPeek = false
-                onOpenStackList?()
-            }
-            Divider()
-            Button(viewModel.note.isPinned ? "Unpin Note" : "Pin Note") {
-                viewModel.togglePin()
-            }
-            Button("Close Note") {
-                isHoveredPeek = false
-                onClose?()
-            }
         }
     }
 
@@ -349,7 +352,9 @@ public struct NoteCardView: View {
         .background(
             ZStack {
                 bg
-                WindowDragArea()
+                WindowDragArea(onDoubleClick: {
+                    viewModel.toggleCollapse()
+                })
             }
         )
         .cornerRadius(12)
@@ -508,7 +513,14 @@ public struct NoteCardView: View {
         .padding(.horizontal, Spacing.m)
         .padding(.top, Spacing.s)
         .padding(.bottom, 2)
-        .background(WindowDragArea())
+        .background(
+            WindowDragArea(onDoubleClick: {
+                viewModel.toggleCollapse()
+            })
+        )
+        .onTapGesture(count: 2) {
+            viewModel.toggleCollapse()
+        }
     }
 
     private func titleEditor(textColor: Color, secondaryColor _: Color) -> some View {

@@ -23,16 +23,26 @@ public final class NotePanel: NSPanel {
 }
 
 public struct WindowDragArea: NSViewRepresentable {
-    public init() {}
+    public var onDoubleClick: (() -> Void)?
 
-    public func makeNSView(context _: Context) -> WindowDragView {
-        WindowDragView()
+    public init(onDoubleClick: (() -> Void)? = nil) {
+        self.onDoubleClick = onDoubleClick
     }
 
-    public func updateNSView(_: WindowDragView, context _: Context) {}
+    public func makeNSView(context _: Context) -> WindowDragView {
+        let view = WindowDragView()
+        view.onDoubleClick = onDoubleClick
+        return view
+    }
+
+    public func updateNSView(_ nsView: WindowDragView, context _: Context) {
+        nsView.onDoubleClick = onDoubleClick
+    }
 }
 
 public final class WindowDragView: NSView {
+    public var onDoubleClick: (() -> Void)?
+
     override public var mouseDownCanMoveWindow: Bool {
         true
     }
@@ -40,6 +50,10 @@ public final class WindowDragView: NSView {
     override public func mouseDown(with event: NSEvent) {
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        if event.clickCount == 2 {
+            onDoubleClick?()
+            return
+        }
         window?.performDrag(with: event)
     }
 }
