@@ -96,7 +96,11 @@ public struct Note: Codable, Sendable, Hashable, Identifiable {
     }
 
     public var hasActiveTimer: Bool {
-        timerSession?.isRunning ?? false
+        guard let timer = timerSession, timer.isRunning else { return false }
+        if let end = timer.endDate, Date() >= end {
+            return false
+        }
+        return true
     }
 
     public var hasVoiceNote: Bool {

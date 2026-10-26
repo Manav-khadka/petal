@@ -620,8 +620,7 @@ public final class AppState {
             body: "Deep work session on native Mac architecture.",
             color: .mint,
             frameX: 460,
-            frameY: 420,
-            timerSession: TimerSession(durationMinutes: 25, endDate: Date().addingTimeInterval(25 * 60))
+            frameY: 420
         )
 
         let sample3 = Note(
