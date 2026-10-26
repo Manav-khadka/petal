@@ -24,6 +24,9 @@ public enum NoteStackFilter: String, CaseIterable, Identifiable {
 }
 
 public struct NotesStackListView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Namespace private var filterAnimation
+
     var appState: AppState = AppState.shared
     public var onSelectNote: (Note.ID) -> Void
     public var onToggleCollapse: (Note.ID) -> Void
@@ -59,8 +62,12 @@ public struct NotesStackListView: View {
         self.onDismiss = onDismiss
     }
 
+    private var nonTrashedNotes: [Note] {
+        appState.notes.filter { !$0.isTrash && !$0.isArchived }
+    }
+
     private var filteredNotes: [Note] {
-        var list = appState.notes.filter { !$0.isTrash && !$0.isArchived }
+        var list = nonTrashedNotes
 
         // Filter tab
         switch selectedFilter {
@@ -78,14 +85,22 @@ public struct NotesStackListView: View {
 
         // Search text
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return list }
-        let lower = trimmed.lowercased()
+        if !trimmed.isEmpty {
+            let lower = trimmed.lowercased()
+            list = list.filter {
+                $0.title.lowercased().contains(lower) ||
+                    $0.body.lowercased().contains(lower) ||
+                    $0.folder.lowercased().contains(lower) ||
+                    $0.checklist.contains { $0.text.lowercased().contains(lower) }
+            }
+        }
 
-        return list.filter {
-            $0.title.lowercased().contains(lower) ||
-                $0.body.lowercased().contains(lower) ||
-                $0.folder.lowercased().contains(lower) ||
-                $0.checklist.contains { $0.text.lowercased().contains(lower) }
+        // Sort: Pinned first, then newest updated
+        return list.sorted {
+            if $0.isPinned != $1.isPinned {
+                return $0.isPinned && !$1.isPinned
+            }
+            return $0.updatedAt > $1.updatedAt
         }
     }
 
@@ -97,22 +112,22 @@ public struct NotesStackListView: View {
                 .padding(.top, 14)
                 .padding(.bottom, 10)
 
-            // Search & Filters
+            // Search & Segmented Filter Bar
             searchAndFiltersSection
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
 
             Divider()
-                .opacity(0.12)
+                .opacity(colorScheme == .dark ? 0.15 : 0.10)
 
             // Notes List
             ScrollView(.vertical, showsIndicators: true) {
                 if filteredNotes.isEmpty {
                     emptyStateView
-                        .padding(.top, 40)
+                        .padding(.top, 45)
                         .padding(.bottom, 30)
                 } else {
-                    LazyVStack(spacing: 8) {
+                    LazyVStack(spacing: 7) {
                         ForEach(filteredNotes) { note in
                             noteRowCard(note: note)
                         }
@@ -120,128 +135,102 @@ public struct NotesStackListView: View {
                     .padding(14)
                 }
             }
+
+            Divider()
+                .opacity(colorScheme == .dark ? 0.15 : 0.10)
+
+            // Bottom Status & Keyboard Shortcut Bar
+            footerBar
         }
-        .frame(width: 500, height: 540)
+        .frame(width: 520, height: 530)
         .background(
             ZStack {
-                Color(hex: "#FAF9F5").opacity(0.97)
                 VisualEffectView(material: .popover, blendingMode: .behindWindow)
+                Color(nsColor: .windowBackgroundColor)
+                    .opacity(colorScheme == .dark ? 0.45 : 0.65)
             }
         )
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(Color.black.opacity(0.10), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.primary.opacity(colorScheme == .dark ? 0.14 : 0.08), lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.20), radius: 24, x: 0, y: 12)
+        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.45 : 0.20), radius: 28, x: 0, y: 14)
     }
 
-    // MARK: - Subviews
+    // MARK: - Header Section
 
     private var headerSection: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 6) {
+            // Left: Title with cute icon and count badge
+            HStack(spacing: 7) {
                 Text("🌸")
-                    .font(.system(size: 15))
+                    .font(.system(size: 16))
 
                 Text("All Notes")
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
 
-                Text("\(appState.notes.count)")
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                Text("\(nonTrashedNotes.count)")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundColor(.secondary)
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, 6.5)
                     .padding(.vertical, 2)
-                    .background(Color.secondary.opacity(0.12))
+                    .background(Color.primary.opacity(0.08))
                     .clipShape(Capsule())
             }
 
             Spacer()
 
-            // Calendar & Agenda button
-            Button(action: {
-                appState.openCalendar()
-                onDismiss()
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("Calendar")
-                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+            // Quick actions icon cluster
+            HStack(spacing: 4) {
+                headerIconButton(
+                    icon: "calendar",
+                    tooltip: "Master Calendar & Agenda (⌥⌘K)",
+                    tint: Color(hex: "#2563EB")
+                ) {
+                    appState.openCalendar()
+                    onDismiss()
                 }
-                .foregroundColor(Color(hex: "#2563EB"))
-                .padding(.horizontal, 7)
-                .padding(.vertical, 4)
-                .background(Color.blue.opacity(0.08))
-                .cornerRadius(6)
-            }
-            .buttonStyle(.plain)
-            .help("Open Master Calendar & Agenda with all tasks and reminders (⌥⌘K)")
 
-            // Collapse All button
-            Button(action: {
-                appState.collapseAllNotes()
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "capsule")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("Collapse All")
-                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                headerIconButton(
+                    icon: "capsule",
+                    tooltip: "Collapse all notes to desktop pills (⌃⌥C)",
+                    tint: .secondary
+                ) {
+                    appState.collapseAllNotes()
                 }
-                .foregroundColor(Color(hex: "#4B5563"))
-                .padding(.horizontal, 7)
-                .padding(.vertical, 4)
-                .background(Color.black.opacity(0.05))
-                .cornerRadius(6)
-            }
-            .buttonStyle(.plain)
-            .help("Collapse all open notes to compact pills (⌃⌥C)")
 
-            // See All / Expand All button
-            Button(action: {
-                appState.expandAllNotes()
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "macwindow.on.rectangle")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("See All")
-                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                headerIconButton(
+                    icon: "macwindow.on.rectangle",
+                    tooltip: "Expand and bring all notes to front (⌃⌥E)",
+                    tint: .secondary
+                ) {
+                    appState.expandAllNotes()
                 }
-                .foregroundColor(Color(hex: "#4B5563"))
-                .padding(.horizontal, 7)
-                .padding(.vertical, 4)
-                .background(Color.black.opacity(0.05))
-                .cornerRadius(6)
-            }
-            .buttonStyle(.plain)
-            .help("Expand and bring all open notes to front (⌃⌥E)")
 
-            // Cascade / Unstack notes button
-            Button(action: onCascadeNotes) {
-                HStack(spacing: 4) {
-                    Image(systemName: "square.split.diagonal.2x2")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("Unstack")
-                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                headerIconButton(
+                    icon: "square.split.diagonal.2x2",
+                    tooltip: "Cascade notes across the screen",
+                    tint: .secondary
+                ) {
+                    onCascadeNotes()
                 }
-                .foregroundColor(Color(hex: "#4B5563"))
-                .padding(.horizontal, 7)
-                .padding(.vertical, 4)
-                .background(Color.black.opacity(0.05))
-                .cornerRadius(6)
             }
-            .buttonStyle(.plain)
-            .help("Cascade and unstack all open notes across the screen")
 
-            // New Note button
+            Divider()
+                .frame(height: 16)
+                .opacity(0.3)
+                .padding(.horizontal, 2)
+
+            // New Note Button
             Button(action: {
                 onNewNote()
                 onDismiss()
             }) {
                 HStack(spacing: 4) {
                     Image(systemName: "plus")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 10.5, weight: .heavy))
                     Text("New Note")
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
                 }
@@ -250,6 +239,7 @@ public struct NotesStackListView: View {
                 .padding(.vertical, 4.5)
                 .background(Color.accentColor)
                 .clipShape(Capsule())
+                .shadow(color: Color.accentColor.opacity(0.25), radius: 3, y: 1)
             }
             .buttonStyle(.plain)
             .help("Create a new note (⌘N)")
@@ -260,7 +250,7 @@ public struct NotesStackListView: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.secondary)
                     .frame(width: 22, height: 22)
-                    .background(Color.black.opacity(0.05))
+                    .background(Color.primary.opacity(0.06))
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -268,62 +258,92 @@ public struct NotesStackListView: View {
         }
     }
 
+    private func headerIconButton(icon: String, tooltip: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(tint)
+                .frame(width: 26, height: 26)
+                .background(Color.primary.opacity(0.05))
+                .cornerRadius(6)
+        }
+        .buttonStyle(.plain)
+        .help(tooltip)
+    }
+
+    // MARK: - Search & Filters Section
+
     private var searchAndFiltersSection: some View {
-        VStack(spacing: 8) {
-            // Search Bar
+        VStack(spacing: 9) {
+            // Modern Search Bar
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(Color(hex: "#6B7280"))
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundColor(.secondary)
 
                 TextField("Search notes, tasks, ideas...", text: $searchText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13, design: .rounded))
-                    .foregroundStyle(Color(hex: "#1C1D21"))
+                    .foregroundStyle(Color.primary)
 
                 if !searchText.isEmpty {
                     Button(action: { searchText = "" }) {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(Color(hex: "#9CA3AF"))
+                            .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
-            .background(Color.white.opacity(0.92))
+            .background(Color.primary.opacity(colorScheme == .dark ? 0.08 : 0.04))
             .cornerRadius(9)
             .overlay(
                 RoundedRectangle(cornerRadius: 9)
-                    .stroke(Color.black.opacity(0.08), lineWidth: 0.8)
+                    .stroke(Color.primary.opacity(colorScheme == .dark ? 0.12 : 0.08), lineWidth: 0.8)
             )
 
-            // Filter Tabs
-            HStack(spacing: 6) {
+            // Segmented Filter Bar
+            HStack(spacing: 3) {
                 ForEach(NoteStackFilter.allCases) { filter in
                     let isSelected = selectedFilter == filter
-                    Button(action: { selectedFilter = filter }) {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            selectedFilter = filter
+                        }
+                    }) {
                         HStack(spacing: 4) {
                             Image(systemName: filter.iconName)
-                                .font(.system(size: 9.5))
+                                .font(.system(size: 9.5, weight: isSelected ? .bold : .medium))
                             Text(filter.rawValue)
-                                .font(.system(size: 10.5, weight: isSelected ? .semibold : .medium, design: .rounded))
+                                .font(.system(size: 10.5, weight: isSelected ? .bold : .medium, design: .rounded))
                         }
-                        .foregroundColor(isSelected ? .white : Color(hex: "#1C1D21").opacity(0.75))
-                        .padding(.horizontal, 9)
+                        .foregroundColor(isSelected ? Color.primary : Color.secondary)
+                        .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(
-                            isSelected ? Color(hex: "#1C1D21") : Color.black.opacity(0.05)
+                            ZStack {
+                                if isSelected {
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(Color.primary.opacity(colorScheme == .dark ? 0.18 : 0.10))
+                                        .matchedGeometryEffect(id: "filterTabPill", in: filterAnimation)
+                                }
+                            }
                         )
-                        .clipShape(Capsule())
+                        .contentShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .buttonStyle(.plain)
                 }
                 Spacer()
             }
+            .padding(2.5)
+            .background(Color.primary.opacity(colorScheme == .dark ? 0.05 : 0.03))
+            .cornerRadius(8)
         }
     }
+
+    // MARK: - Note Row Card
 
     private func noteRowCard(note: Note) -> some View {
         let isHovered = hoveredNoteID == note.id
@@ -335,13 +355,15 @@ public struct NotesStackListView: View {
             RoundedRectangle(cornerRadius: 2)
                 .fill(noteBg)
                 .frame(width: 4, height: 34)
+                .shadow(color: noteBg.opacity(0.35), radius: 2, x: 0, y: 0)
 
             // Title & Snippet
             VStack(alignment: .leading, spacing: 3) {
+                // Row 1: Title, Pin, Date, Desk State
                 HStack(spacing: 6) {
                     Text(note.title.isEmpty ? "Untitled Note" : note.title)
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color(hex: "#1C1D21"))
+                        .foregroundColor(.primary)
                         .lineLimit(1)
 
                     if note.isPinned {
@@ -353,146 +375,260 @@ public struct NotesStackListView: View {
                     Spacer()
 
                     // Date Tag
-                    HStack(spacing: 3) {
-                        Image(systemName: "calendar")
-                            .font(.system(size: 8.5))
-                        Text(note.createdAt.formatted(.dateTime.month(.abbreviated).day()))
-                            .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                    }
-                    .foregroundColor(Color(hex: "#6B7280"))
+                    Text(note.createdAt.formatted(.dateTime.month(.abbreviated).day()))
+                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                        .foregroundColor(.secondary)
 
                     // Status Chips
                     if isOpen {
-                        Text(note.isCollapsed ? "Pill" : "On Desk")
-                            .font(.system(size: 9.5, weight: .semibold, design: .rounded))
-                            .foregroundColor(note.isCollapsed ? Color(hex: "#6B7280") : Color(hex: "#2563EB"))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                (note.isCollapsed ? Color.black.opacity(0.06) : Color.blue.opacity(0.12))
-                            )
-                            .clipShape(Capsule())
+                        HStack(spacing: 3) {
+                            if note.isCollapsed {
+                                Image(systemName: "capsule.fill")
+                                    .font(.system(size: 7))
+                                    .foregroundColor(.secondary)
+                                Text("Pill")
+                                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 5, height: 5)
+                                Text("On Desk")
+                                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                                    .foregroundColor(Color(hex: "#10B981"))
+                            }
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            note.isCollapsed ? Color.primary.opacity(0.06) : Color.green.opacity(0.12)
+                        )
+                        .clipShape(Capsule())
                     }
                 }
 
-                // Snippet or task progress
-                if !note.checklist.isEmpty {
-                    let doneCount = note.checklist.filter(\.isDone).count
-                    HStack(spacing: 4) {
-                        Image(systemName: "checklist")
-                            .font(.system(size: 9))
-                            .foregroundColor(Color(hex: "#2EB872"))
-                        Text("\(doneCount) of \(note.checklist.count) tasks done")
-                            .font(.system(size: 11, design: .rounded))
-                            .foregroundColor(Color(hex: "#6B7280"))
-                    }
-                } else if !note.previewSnippet.isEmpty {
-                    Text(note.previewSnippet)
-                        .font(.system(size: 11, design: .rounded))
-                        .foregroundColor(Color(hex: "#6B7280"))
-                        .lineLimit(1)
-                }
+                // Row 2: Checklist Progress or Preview Snippet
+                HStack(spacing: 8) {
+                    if !note.checklist.isEmpty {
+                        let doneCount = note.checklist.filter(\.isDone).count
+                        let total = note.checklist.count
+                        let progress = Double(doneCount) / Double(max(total, 1))
 
-                // Timers & Reminders indicators
-                if note.hasActiveTimer || note.hasActiveReminder {
-                    HStack(spacing: 6) {
-                        if let timer = note.timerSession {
-                            TimelineView(.periodic(from: .now, by: 1.0)) { context in
-                                HStack(spacing: 3) {
-                                    Image(systemName: "hourglass")
-                                        .font(.system(size: 9))
-                                    Text(timer.formattedRemaining(at: context.date))
-                                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                        HStack(spacing: 5) {
+                            // Mini progress bar
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule()
+                                        .fill(Color.primary.opacity(0.08))
+                                        .frame(height: 3)
+                                    Capsule()
+                                        .fill(Color(hex: "#10B981"))
+                                        .frame(width: geo.size.width * progress, height: 3)
                                 }
-                                .foregroundColor(.blue)
                             }
-                        }
+                            .frame(width: 40, height: 3)
 
-                        if let rem = note.reminder {
+                            Text("\(doneCount)/\(total) tasks done")
+                                .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                                .foregroundColor(.secondary)
+                        }
+                    } else if !note.previewSnippet.isEmpty {
+                        Text(note.previewSnippet)
+                            .font(.system(size: 11, design: .rounded))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    } else {
+                        Text("Empty note")
+                            .font(.system(size: 11, design: .rounded))
+                            .foregroundColor(.secondary.opacity(0.6))
+                            .italic()
+                    }
+
+                    Spacer()
+
+                    // Timers & Reminders indicators
+                    if let timer = note.timerSession {
+                        TimelineView(.periodic(from: .now, by: 1.0)) { context in
                             HStack(spacing: 3) {
-                                Image(systemName: "bell.fill")
-                                    .font(.system(size: 9))
-                                Text(rem.targetDate.formatted(date: .omitted, time: .shortened))
-                                    .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                                Image(systemName: "hourglass")
+                                    .font(.system(size: 8))
+                                Text(timer.formattedRemaining(at: context.date))
+                                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
                             }
-                            .foregroundColor(.orange)
+                            .foregroundColor(.blue)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(Color.blue.opacity(0.10))
+                            .clipShape(Capsule())
                         }
                     }
-                    .padding(.top, 1)
+
+                    if let rem = note.reminder {
+                        HStack(spacing: 3) {
+                            Image(systemName: "bell.fill")
+                                .font(.system(size: 8))
+                            Text(rem.targetDate.formatted(date: .omitted, time: .shortened))
+                                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1.5)
+                        .background(Color.orange.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
                 }
             }
 
             // Quick actions on row hover
             if isHovered {
-                HStack(spacing: 4) {
-                    // Bring to front button
-                    Button(action: {
+                HStack(spacing: 3) {
+                    rowIconButton(
+                        icon: "arrow.up.forward.app",
+                        tooltip: "Bring note to front",
+                        tint: .primary
+                    ) {
                         onSelectNote(note.id)
-                    }) {
-                        Image(systemName: "arrow.up.forward.app")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(Color(hex: "#1C1D21"))
-                            .frame(width: 24, height: 24)
-                            .background(Color.black.opacity(0.06))
-                            .clipShape(Circle())
                     }
-                    .buttonStyle(.plain)
-                    .help("Bring this note to front")
 
-                    // Toggle Collapse button
-                    Button(action: {
+                    rowIconButton(
+                        icon: note.isCollapsed ? "macwindow.on.rectangle" : "chevron.down",
+                        tooltip: note.isCollapsed ? "Expand note" : "Collapse to pill",
+                        tint: .secondary
+                    ) {
                         onToggleCollapse(note.id)
-                    }) {
-                        Image(systemName: note.isCollapsed ? "arrow.up.left.and.arrow.down.right" : "chevron.down")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(Color(hex: "#4B5563"))
-                            .frame(width: 24, height: 24)
-                            .background(Color.black.opacity(0.06))
-                            .clipShape(Circle())
                     }
-                    .buttonStyle(.plain)
-                    .help(note.isCollapsed ? "Expand note" : "Collapse to pill")
 
-                    // Delete button
-                    Button(action: {
+                    rowIconButton(
+                        icon: "trash",
+                        tooltip: "Delete note",
+                        tint: .red.opacity(0.85)
+                    ) {
                         onDeleteNote(note.id)
-                    }) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.red.opacity(0.85))
-                            .frame(width: 24, height: 24)
-                            .background(Color.red.opacity(0.08))
-                            .clipShape(Circle())
                     }
-                    .buttonStyle(.plain)
-                    .help("Delete note")
                 }
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 7.5)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(isHovered ? Color.white : Color.white.opacity(0.72))
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(
+                    isHovered
+                        ? Color.primary.opacity(colorScheme == .dark ? 0.10 : 0.07)
+                        : Color.primary.opacity(colorScheme == .dark ? 0.05 : 0.03)
+                )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(isHovered ? Color.black.opacity(0.12) : Color.black.opacity(0.05), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(
+                    isHovered
+                        ? Color.primary.opacity(colorScheme == .dark ? 0.16 : 0.12)
+                        : Color.primary.opacity(colorScheme == .dark ? 0.06 : 0.04),
+                    lineWidth: 0.8
+                )
         )
-        .contentShape(Rectangle())
+        .contentShape(RoundedRectangle(cornerRadius: 10))
         .onHover { isHov in
-            hoveredNoteID = isHov ? note.id : nil
+            withAnimation(.easeInOut(duration: 0.12)) {
+                hoveredNoteID = isHov ? note.id : nil
+            }
         }
         .onTapGesture {
             onSelectNote(note.id)
         }
+        .contextMenu {
+            Button {
+                onSelectNote(note.id)
+            } label: {
+                Label("Bring to Front", systemImage: "arrow.up.forward.app")
+            }
+
+            Button {
+                onToggleCollapse(note.id)
+            } label: {
+                Label(note.isCollapsed ? "Expand Note" : "Collapse to Pill", systemImage: note.isCollapsed ? "macwindow.on.rectangle" : "capsule")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                onDeleteNote(note.id)
+            } label: {
+                Label("Delete Note", systemImage: "trash")
+            }
+        }
     }
+
+    private func rowIconButton(icon: String, tooltip: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(tint)
+                .frame(width: 22, height: 22)
+                .background(Color.primary.opacity(0.06))
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(tooltip)
+    }
+
+    // MARK: - Footer Status & Keyboard Bar
+
+    private var footerBar: some View {
+        let onDeskCount = nonTrashedNotes.filter { appState.activeControllers.keys.contains($0.id) && !$0.isCollapsed }.count
+        let pillCount = nonTrashedNotes.filter { $0.isCollapsed }.count
+
+        return HStack {
+            HStack(spacing: 5) {
+                Text("\(filteredNotes.count) of \(nonTrashedNotes.count) notes")
+                Text("•")
+                    .opacity(0.35)
+                Text("\(onDeskCount) on desk")
+                if pillCount > 0 {
+                    Text("•")
+                        .opacity(0.35)
+                    Text("\(pillCount) pills")
+                }
+            }
+            .font(.system(size: 10.5, design: .rounded))
+            .foregroundColor(.secondary)
+
+            Spacer()
+
+            HStack(spacing: 7) {
+                shortcutBadge(key: "↵", label: "Open")
+                shortcutBadge(key: "⌘N", label: "New")
+                shortcutBadge(key: "⌥⌘K", label: "Agenda")
+                shortcutBadge(key: "⎋", label: "Close")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color.primary.opacity(colorScheme == .dark ? 0.04 : 0.02))
+    }
+
+    private func shortcutBadge(key: String, label: String) -> some View {
+        HStack(spacing: 3) {
+            Text(key)
+                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1.5)
+                .background(Color.primary.opacity(0.08))
+                .cornerRadius(3.5)
+            Text(label)
+                .font(.system(size: 10, design: .rounded))
+                .foregroundColor(.secondary)
+        }
+    }
+
+    // MARK: - Empty State View
 
     private var emptyStateView: some View {
         VStack(spacing: 10) {
             Image(systemName: "tray")
-                .font(.system(size: 32))
-                .foregroundColor(.secondary.opacity(0.6))
+                .font(.system(size: 30))
+                .foregroundColor(.secondary.opacity(0.5))
 
             if searchText.isEmpty {
                 Text("No notes found in this category")
@@ -508,7 +644,7 @@ public struct NotesStackListView: View {
                     onDismiss()
                 }) {
                     Text("Create note with this title")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                         .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.plain)

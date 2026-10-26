@@ -97,7 +97,7 @@ public struct CalendarView: View {
             // Left Sidebar: Calendar Picker & Controls
             sidebarView
                 .frame(width: 310)
-                .background(Color(hex: "#F7F6F2"))
+                .background(Color(nsColor: .windowBackgroundColor))
 
             Divider()
                 .opacity(0.15)
@@ -105,7 +105,7 @@ public struct CalendarView: View {
             // Right Area: Timeline, Reminders & Tasks
             mainTimelineView
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.white.opacity(0.97))
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
         }
         .frame(minWidth: 780, minHeight: 520)
     }
@@ -226,11 +226,11 @@ public struct CalendarView: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.8))
+        .background(Color.primary.opacity(0.04))
         .cornerRadius(10)
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.8)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 0.8)
         )
     }
 
@@ -275,7 +275,7 @@ public struct CalendarView: View {
                                 .font(.system(size: 11, weight: selectedType == filter ? .bold : .medium, design: .rounded))
                                 .padding(.horizontal, 9)
                                 .padding(.vertical, 4)
-                                .background(selectedType == filter ? Color.accentColor : Color.black.opacity(0.05))
+                                .background(selectedType == filter ? Color.accentColor : Color.primary.opacity(0.06))
                                 .foregroundColor(selectedType == filter ? .white : .primary)
                                 .clipShape(Capsule())
                         }
@@ -386,11 +386,11 @@ public struct CalendarView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.black.opacity(0.03))
+        .background(Color.primary.opacity(0.04))
         .cornerRadius(10)
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.black.opacity(0.06), lineWidth: 0.8)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 0.8)
         )
     }
 
@@ -449,7 +449,7 @@ public struct CalendarView: View {
                         } else {
                             RoundedRectangle(cornerRadius: 5, style: .continuous)
                                 .strokeBorder(Color.primary.opacity(0.3), lineWidth: 1.2)
-                                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.white))
+                                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.primary.opacity(0.06)))
                                 .frame(width: 18, height: 18)
                         }
                     }
@@ -561,13 +561,13 @@ public struct CalendarView: View {
         .padding(.vertical, 9)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white)
+                .fill(Color(nsColor: .controlBackgroundColor))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.black.opacity(0.07), lineWidth: 0.8)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 0.8)
         )
-        .shadow(color: Color.black.opacity(0.03), radius: 2, y: 1)
+        .shadow(color: Color.black.opacity(0.04), radius: 3, y: 1.5)
     }
 
     private func typeBadgeBg(_ type: AgendaItemType) -> Color {

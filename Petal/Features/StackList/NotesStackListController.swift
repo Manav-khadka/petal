@@ -37,8 +37,8 @@ public final class NotesStackListController: NSObject, NSWindowDelegate {
     public func show(with view: some View) {
         guard let screen = NSScreen.main else { return }
 
-        let width: CGFloat = 500
-        let height: CGFloat = 540
+        let width: CGFloat = 520
+        let height: CGFloat = 530
         let x = screen.visibleFrame.midX - (width / 2)
         let y = screen.visibleFrame.midY - (height / 2) + 40
 
