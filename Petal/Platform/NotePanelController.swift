@@ -60,8 +60,8 @@ public final class WindowDragView: NSView {
 
 @MainActor
 public final class NotePanelController: NSObject, NSWindowDelegate {
-    public static let minimumExpandedWidth: CGFloat = 248
-    public static let minimumExpandedHeight: CGFloat = 150
+    public static let minimumExpandedWidth: CGFloat = 260
+    public static let minimumExpandedHeight: CGFloat = 280
 
     public let noteID: Note.ID
     public private(set) var panel: NotePanel?
@@ -91,8 +91,8 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
             return
         }
 
-        let initialWidth = max(Self.minimumExpandedWidth, frame.width)
-        let initialHeight = max(Self.minimumExpandedHeight, frame.height)
+        let initialWidth = max(Self.minimumExpandedWidth, max(280, frame.width))
+        let initialHeight = max(Self.minimumExpandedHeight, max(320, frame.height))
         expandedSize = CGSize(width: initialWidth, height: initialHeight)
 
         let initialRect: NSRect
@@ -165,8 +165,8 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
             let newFrame = NSRect(x: frame.minX, y: newY, width: targetW, height: targetH)
             panel.setFrame(newFrame, display: true)
         } else {
-            let targetW = max(Self.minimumExpandedWidth, expandedSize.width)
-            let targetH = max(Self.minimumExpandedHeight, expandedSize.height)
+            let targetW = max(Self.minimumExpandedWidth, max(280, expandedSize.width))
+            let targetH = max(Self.minimumExpandedHeight, max(320, expandedSize.height))
             let newY = frame.maxY - targetH
             let newFrame = NSRect(x: frame.minX, y: newY, width: targetW, height: targetH)
             panel.setFrame(newFrame, display: true)

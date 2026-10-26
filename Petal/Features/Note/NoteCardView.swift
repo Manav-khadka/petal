@@ -427,17 +427,18 @@ public struct NoteCardView: View {
         return VStack(alignment: .leading, spacing: 0) {
             // Top Strip (Clean Drag Bar)
             topHeaderStrip(textColor: textColor, secondaryColor: secondaryColor)
+                .layoutPriority(2)
 
             // Title Field
             titleEditor(textColor: textColor, secondaryColor: secondaryColor)
                 .padding(.horizontal, Spacing.m)
-                .padding(.top, 6)
+                .padding(.top, 4)
 
             // Date Badge (Interactive Calendar)
             noteDateBadge(secondaryColor: secondaryColor)
                 .padding(.horizontal, Spacing.m)
                 .padding(.top, 2)
-                .padding(.bottom, 3)
+                .padding(.bottom, 2)
 
             // Body & Checklist
             ScrollView(.vertical, showsIndicators: false) {
@@ -452,6 +453,7 @@ public struct NoteCardView: View {
                 .padding(.top, 4)
                 .padding(.bottom, 6)
             }
+            .frame(maxHeight: .infinity)
 
             // Status Chips (Reminder, Timer, Voice playback)
             if viewModel.note.hasActiveReminder || viewModel.note.hasActiveTimer || viewModel.note.hasVoiceNote {
@@ -464,8 +466,9 @@ public struct NoteCardView: View {
             bottomToolbarSection(textColor: textColor)
                 .padding(.horizontal, Spacing.m)
                 .padding(.bottom, 7)
+                .layoutPriority(2)
         }
-        .frame(minWidth: 248, maxWidth: .infinity, minHeight: 150, maxHeight: .infinity)
+        .frame(minWidth: 260, maxWidth: .infinity, minHeight: 280, maxHeight: .infinity)
         .background(
             ZStack {
                 bg
@@ -796,54 +799,55 @@ public struct NoteCardView: View {
     }
 
     private var statusChipsRow: some View {
-        HStack(spacing: 6) {
-            // Reminder chip
-            if let reminder = viewModel.note.reminder {
-                HStack(spacing: 4) {
-                    Image(systemName: "bell.fill")
-                        .font(.system(size: 9))
-                    Text(reminder.targetDate.formatted(date: .omitted, time: .shortened))
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(Color.orange.opacity(0.18))
-                .foregroundColor(.orange)
-                .cornerRadius(10)
-                .onTapGesture {
-                    viewModel.activePopover = .reminder
-                }
-            }
-
-            // Timer Progress Chip
-            if let timer = viewModel.note.timerSession {
-                TimelineView(.periodic(from: .now, by: 1.0)) { context in
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                // Reminder chip
+                if let reminder = viewModel.note.reminder {
                     HStack(spacing: 4) {
-                        MascotFaceView(
-                            mood: (timer.isRunning && !timer.isFinished(at: context.date)) ? .awake : .sleeping,
-                            tint: .blue,
-                            size: 16
-                        )
-                        Text(timer.formattedRemaining(at: context.date))
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        Image(systemName: "bell.fill")
+                            .font(.system(size: 9))
+                        Text(reminder.targetDate.formatted(date: .omitted, time: .shortened))
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(Color.blue.opacity(0.15))
-                    .foregroundColor(.blue)
+                    .background(Color.orange.opacity(0.18))
+                    .foregroundColor(.orange)
                     .cornerRadius(10)
                     .onTapGesture {
-                        viewModel.activePopover = .timer
+                        viewModel.activePopover = .reminder
                     }
                 }
-            }
 
-            // Voice Playback Pill
-            if let clip = viewModel.note.voiceClip {
-                VoicePlaybackPill(viewModel: viewModel, clip: clip)
-            }
+                // Timer Progress Chip
+                if let timer = viewModel.note.timerSession {
+                    TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                        HStack(spacing: 4) {
+                            MascotFaceView(
+                                mood: (timer.isRunning && !timer.isFinished(at: context.date)) ? .awake : .sleeping,
+                                tint: .blue,
+                                size: 16
+                            )
+                            Text(timer.formattedRemaining(at: context.date))
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.blue.opacity(0.15))
+                        .foregroundColor(.blue)
+                        .cornerRadius(10)
+                        .onTapGesture {
+                            viewModel.activePopover = .timer
+                        }
+                    }
+                }
 
-            Spacer()
+                // Voice Playback Pill
+                if let clip = viewModel.note.voiceClip {
+                    VoicePlaybackPill(viewModel: viewModel, clip: clip)
+                }
+            }
+            .padding(.vertical, 1)
         }
     }
 

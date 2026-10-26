@@ -87,6 +87,26 @@ public final class AppState {
                     cleaned.append(note)
                 }
             }
+
+            // Migrate any old undersized notes to minimum viable dimensions
+            for i in 0 ..< cleaned.count {
+                var modified = false
+                if cleaned[i].height < NotePanelController.minimumExpandedHeight {
+                    cleaned[i].height = 320
+                    modified = true
+                }
+                if cleaned[i].width < NotePanelController.minimumExpandedWidth {
+                    cleaned[i].width = 280
+                    modified = true
+                }
+                if modified {
+                    let n = cleaned[i]
+                    Task { [repository] in
+                        try? await repository.save(n)
+                    }
+                }
+            }
+
             notes = cleaned
         } catch {
             notes = []
@@ -153,8 +173,8 @@ public final class AppState {
         guard let screen = NSScreen.main else { return }
         let visible = screen.visibleFrame
 
-        let initialWidth = max(NotePanelController.minimumExpandedWidth, note.width)
-        let initialHeight = max(NotePanelController.minimumExpandedHeight, note.height)
+        let initialWidth = max(NotePanelController.minimumExpandedWidth, max(280, note.width))
+        let initialHeight = max(NotePanelController.minimumExpandedHeight, max(320, note.height))
 
         var posX = note.frameX
         var posY = note.frameY
