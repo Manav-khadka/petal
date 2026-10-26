@@ -20,12 +20,14 @@ public final class BoardWindowController: NSObject, NSWindowDelegate {
         }
 
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 100, y: 100, width: 920, height: 620),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: NSRect(x: 100, y: 100, width: 960, height: 650),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         newWindow.title = "Petal Board"
+        newWindow.titlebarAppearsTransparent = true
+        newWindow.toolbarStyle = .unified
         newWindow.center()
         newWindow.delegate = self
         newWindow.contentView = NSHostingView(rootView: rootView)

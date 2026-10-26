@@ -186,10 +186,25 @@ public final class AppState {
         BoardWindowController.shared.show(
             with: BoardView(
                 notes: notes,
-                onNewNote: { self.createNewNote() },
-                onOpenFloatingNote: { self.openFloatingNote($0) },
-                onDeleteNote: { self.deleteNote($0) },
-                onArchiveNote: { self.archiveNote($0) }
+                onNewNote: { [weak self] in self?.createNewNote() },
+                onOpenFloatingNote: { [weak self] in self?.openFloatingNote($0) },
+                onDeleteNote: { [weak self] in self?.deleteNote($0) },
+                onArchiveNote: { [weak self] in self?.archiveNote($0) },
+                onPinNote: { [weak self] noteID in
+                    guard let self = self, let idx = self.notes.firstIndex(where: { $0.id == noteID }) else { return }
+                    self.notes[idx].isPinned.toggle()
+                    Task {
+                        try? await self.repository.save(self.notes[idx])
+                    }
+                },
+                onChangeColor: { [weak self] noteID, color in
+                    guard let self = self, let idx = self.notes.firstIndex(where: { $0.id == noteID }) else { return }
+                    self.notes[idx].color = color
+                    Task {
+                        try? await self.repository.save(self.notes[idx])
+                    }
+                },
+                onOpenSettings: { [weak self] in self?.openSettings() }
             )
         )
     }

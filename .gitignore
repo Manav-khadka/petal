@@ -18,9 +18,11 @@ xcuserdata/
 *.xccheckout
 DerivedData/
 build/
+build_release/
 
 # Swift Package Manager
 .build/
+build_release/
 .swiftpm/
 
 # Artifacts & Temporary Files
