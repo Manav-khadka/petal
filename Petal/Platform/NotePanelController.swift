@@ -64,7 +64,8 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
         isPinned: Bool,
         isOnDesktop: Bool,
         isCollapsed: Bool = false,
-        collapseStyle: CollapseStyle = .pill
+        collapseStyle: CollapseStyle = .pill,
+        requiresDarkText: Bool = true
     ) {
         if let existing = panel {
             existing.makeKeyAndOrderFront(nil)
@@ -104,6 +105,7 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
         newPanel.isMovableByWindowBackground = true
         newPanel.hidesOnDeactivate = false
         newPanel.becomesKeyOnlyIfNeeded = false
+        newPanel.appearance = NSAppearance(named: requiresDarkText ? .aqua : .darkAqua)
         newPanel.delegate = self
         newPanel.onEscapePressed = { [weak self] in
             self?.onEscapePressed?()
@@ -184,7 +186,11 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    public func updateFrame(_ newFrame: CGRect, animate: Bool = true) {
+    public func updateAppearance(requiresDarkText: Bool) {
+        panel?.appearance = NSAppearance(named: requiresDarkText ? .aqua : .darkAqua)
+    }
+
+    public func updateFrame(_ newFrame: CGRect, animate: Bool = false) {
         panel?.setFrame(newFrame, display: true, animate: animate)
     }
 

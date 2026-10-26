@@ -122,19 +122,19 @@ public struct NotesStackListView: View {
                 }
             }
         }
-        .frame(width: 480, height: 530)
+        .frame(width: 500, height: 540)
         .background(
             ZStack {
-                Color(hex: "#FAF9F5")
-                VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+                Color(hex: "#FAF9F5").opacity(0.97)
+                VisualEffectView(material: .popover, blendingMode: .behindWindow)
             }
         )
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(Color.black.opacity(0.12), lineWidth: 1)
+                .stroke(Color.black.opacity(0.10), lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.2), radius: 24, x: 0, y: 12)
+        .shadow(color: Color.black.opacity(0.20), radius: 24, x: 0, y: 12)
     }
 
     // MARK: - Subviews
@@ -229,27 +229,28 @@ public struct NotesStackListView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color(hex: "#6B7280"))
 
                 TextField("Search notes, tasks, ideas...", text: $searchText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13, design: .rounded))
+                    .foregroundStyle(Color(hex: "#1C1D21"))
 
                 if !searchText.isEmpty {
                     Button(action: { searchText = "" }) {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(hex: "#9CA3AF"))
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.white.opacity(0.8))
-            .cornerRadius(8)
+            .padding(.vertical, 7)
+            .background(Color.white.opacity(0.92))
+            .cornerRadius(9)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 9)
                     .stroke(Color.black.opacity(0.08), lineWidth: 0.8)
             )
 
@@ -264,11 +265,11 @@ public struct NotesStackListView: View {
                             Text(filter.rawValue)
                                 .font(.system(size: 10.5, weight: isSelected ? .semibold : .medium, design: .rounded))
                         }
-                        .foregroundColor(isSelected ? .white : .primary.opacity(0.75))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3.5)
+                        .foregroundColor(isSelected ? .white : Color(hex: "#1C1D21").opacity(0.75))
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
                         .background(
-                            isSelected ? Color.black.opacity(0.75) : Color.black.opacity(0.05)
+                            isSelected ? Color(hex: "#1C1D21") : Color.black.opacity(0.05)
                         )
                         .clipShape(Capsule())
                     }
@@ -285,18 +286,17 @@ public struct NotesStackListView: View {
         let noteBg = Color(hex: note.color.hex)
 
         return HStack(spacing: 10) {
-            // Color dot
-            Circle()
+            // Left color accent bar
+            RoundedRectangle(cornerRadius: 2)
                 .fill(noteBg)
-                .frame(width: 12, height: 12)
-                .overlay(Circle().stroke(Color.black.opacity(0.15), lineWidth: 1))
+                .frame(width: 4, height: 34)
 
             // Title & Snippet
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(note.title.isEmpty ? "Untitled Note" : note.title)
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundColor(.primary)
+                        .foregroundColor(Color(hex: "#1C1D21"))
                         .lineLimit(1)
 
                     if note.isPinned {
@@ -311,11 +311,11 @@ public struct NotesStackListView: View {
                     if isOpen {
                         Text(note.isCollapsed ? "Pill" : "On Desk")
                             .font(.system(size: 9.5, weight: .semibold, design: .rounded))
-                            .foregroundColor(note.isCollapsed ? .secondary : .accentColor)
-                            .padding(.horizontal, 5)
+                            .foregroundColor(note.isCollapsed ? Color(hex: "#6B7280") : Color(hex: "#2563EB"))
+                            .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(
-                                (note.isCollapsed ? Color.secondary : Color.accentColor).opacity(0.12)
+                                (note.isCollapsed ? Color.black.opacity(0.06) : Color.blue.opacity(0.12))
                             )
                             .clipShape(Capsule())
                     }
@@ -330,12 +330,12 @@ public struct NotesStackListView: View {
                             .foregroundColor(Color(hex: "#2EB872"))
                         Text("\(doneCount) of \(note.checklist.count) tasks done")
                             .font(.system(size: 11, design: .rounded))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(hex: "#6B7280"))
                     }
                 } else if !note.previewSnippet.isEmpty {
                     Text(note.previewSnippet)
                         .font(.system(size: 11, design: .rounded))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color(hex: "#6B7280"))
                         .lineLimit(1)
                 }
 
@@ -376,7 +376,7 @@ public struct NotesStackListView: View {
                     }) {
                         Image(systemName: "arrow.up.forward.app")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.primary.opacity(0.7))
+                            .foregroundColor(Color(hex: "#1C1D21"))
                             .frame(width: 24, height: 24)
                             .background(Color.black.opacity(0.06))
                             .clipShape(Circle())
@@ -390,7 +390,7 @@ public struct NotesStackListView: View {
                     }) {
                         Image(systemName: note.isCollapsed ? "arrow.up.left.and.arrow.down.right" : "chevron.down")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(hex: "#4B5563"))
                             .frame(width: 24, height: 24)
                             .background(Color.black.opacity(0.06))
                             .clipShape(Circle())
@@ -404,7 +404,7 @@ public struct NotesStackListView: View {
                     }) {
                         Image(systemName: "trash")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.red.opacity(0.75))
+                            .foregroundColor(.red.opacity(0.85))
                             .frame(width: 24, height: 24)
                             .background(Color.red.opacity(0.08))
                             .clipShape(Circle())
@@ -415,14 +415,14 @@ public struct NotesStackListView: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isHovered ? noteBg.opacity(0.35) : noteBg.opacity(0.18))
+                .fill(isHovered ? Color.white : Color.white.opacity(0.72))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(isHovered ? Color.black.opacity(0.15) : Color.black.opacity(0.06), lineWidth: 0.8)
+                .stroke(isHovered ? Color.black.opacity(0.12) : Color.black.opacity(0.05), lineWidth: 0.8)
         )
         .contentShape(Rectangle())
         .onHover { isHov in

@@ -108,7 +108,13 @@ public final class AppState {
         viewModel.onCollapseToggled = { [weak controller, weak viewModel] isCollapsed in
             guard let style = viewModel?.note.collapseStyle else { return }
             DispatchQueue.main.async {
-                controller?.setCollapsed(isCollapsed, style: style, animated: true)
+                controller?.setCollapsed(isCollapsed, style: style, animated: false)
+            }
+        }
+
+        viewModel.onColorChanged = { [weak controller] newColor in
+            DispatchQueue.main.async {
+                controller?.updateAppearance(requiresDarkText: newColor.requiresDarkText)
             }
         }
 
@@ -163,7 +169,8 @@ public final class AppState {
             isPinned: note.isPinned,
             isOnDesktop: note.isOnDesktop,
             isCollapsed: note.isCollapsed,
-            collapseStyle: note.collapseStyle
+            collapseStyle: note.collapseStyle,
+            requiresDarkText: note.color.requiresDarkText
         )
     }
 
@@ -337,7 +344,7 @@ public final class AppState {
             }
 
             let newFrame = NSRect(x: currentX, y: currentY - h, width: w, height: h)
-            controller.updateFrame(newFrame, animate: true)
+            controller.updateFrame(newFrame, animate: false)
             notes[idx].frameX = currentX
             notes[idx].frameY = currentY - h
             controller.panel?.makeKeyAndOrderFront(nil)

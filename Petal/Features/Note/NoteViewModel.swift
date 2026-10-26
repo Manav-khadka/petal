@@ -54,10 +54,14 @@ public final class NoteViewModel: Identifiable {
         save()
     }
 
+    public var onCollapseToggled: ((Bool) -> Void)?
+    public var onColorChanged: ((NoteColor) -> Void)?
+
     public func setColor(_ color: NoteColor) {
         note.color = color
         note.updatedAt = dateProvider.now
         save()
+        onColorChanged?(color)
     }
 
     public func togglePin() {

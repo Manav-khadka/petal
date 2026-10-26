@@ -33,11 +33,15 @@ public struct NoteCardView: View {
     }
 
     public var body: some View {
-        if viewModel.note.isCollapsed {
-            collapsedView
-        } else {
-            expandedCardView
+        Group {
+            if viewModel.note.isCollapsed {
+                collapsedView
+            } else {
+                expandedCardView
+            }
         }
+        .environment(\.colorScheme, viewModel.note.color.requiresDarkText ? .light : .dark)
+        .preferredColorScheme(viewModel.note.color.requiresDarkText ? .light : .dark)
     }
 
     // MARK: - Collapsed View (Desktop Pill)
@@ -138,6 +142,24 @@ public struct NoteCardView: View {
         .onTapGesture {
             isHoveredPeek = false
             viewModel.toggleCollapse()
+        }
+        .contextMenu {
+            Button("Expand Note") {
+                isHoveredPeek = false
+                viewModel.toggleCollapse()
+            }
+            Button("All Notes & Stack Manager (⌘L)") {
+                isHoveredPeek = false
+                onOpenStackList?()
+            }
+            Divider()
+            Button(viewModel.note.isPinned ? "Unpin Note" : "Pin Note") {
+                viewModel.togglePin()
+            }
+            Button("Close Note") {
+                isHoveredPeek = false
+                onClose?()
+            }
         }
         .onHover { isHov in
             peekDismissTask?.cancel()
@@ -250,6 +272,24 @@ public struct NoteCardView: View {
         .onTapGesture {
             isHoveredPeek = false
             viewModel.toggleCollapse()
+        }
+        .contextMenu {
+            Button("Expand Note") {
+                isHoveredPeek = false
+                viewModel.toggleCollapse()
+            }
+            Button("All Notes & Stack Manager (⌘L)") {
+                isHoveredPeek = false
+                onOpenStackList?()
+            }
+            Divider()
+            Button(viewModel.note.isPinned ? "Unpin Note" : "Pin Note") {
+                viewModel.togglePin()
+            }
+            Button("Close Note") {
+                isHoveredPeek = false
+                onClose?()
+            }
         }
     }
 
@@ -471,32 +511,44 @@ public struct NoteCardView: View {
         .background(WindowDragArea())
     }
 
-    private func titleEditor(textColor: Color, secondaryColor: Color) -> some View {
-        TextField("Title", text: Binding(
+    private func titleEditor(textColor: Color, secondaryColor _: Color) -> some View {
+        let placeholderColor = viewModel.note.color.requiresDarkText
+            ? Color(hex: "#6B7280")
+            : Color(hex: "#9CA3AF")
+
+        return TextField("Title", text: Binding(
             get: { viewModel.note.title },
             set: { viewModel.updateTitle($0) }
-        ), prompt: Text("Title").foregroundColor(secondaryColor.opacity(0.45)))
+        ), prompt: Text("Title").foregroundColor(placeholderColor))
             .font(.system(size: 17, weight: .bold, design: .rounded))
             .textFieldStyle(.plain)
             .foregroundStyle(textColor)
+            .tint(textColor)
+            .accentColor(textColor)
             .focusEffectDisabled()
             .autocorrectionDisabled(true)
     }
 
     private func bodyEditor(textColor: Color) -> some View {
-        TextField(
+        let placeholderColor = viewModel.note.color.requiresDarkText
+            ? Color(hex: "#71717A")
+            : Color(hex: "#A1A1AA")
+
+        return TextField(
             "Write a note...",
             text: Binding(
                 get: { viewModel.note.body },
                 set: { viewModel.updateBody($0) }
             ),
-            prompt: Text("Write a note...").foregroundColor(textColor.opacity(0.35)),
+            prompt: Text("Write a note...").foregroundColor(placeholderColor),
             axis: .vertical
         )
         .font(.system(size: 13.5, design: .rounded))
         .lineSpacing(3.5)
         .textFieldStyle(.plain)
         .foregroundStyle(textColor)
+        .tint(textColor)
+        .accentColor(textColor)
         .focusEffectDisabled()
         .frame(
             minHeight: (viewModel.note.body.isEmpty && viewModel.note.checklist.isEmpty) ? 80 : 32,
@@ -505,7 +557,11 @@ public struct NoteCardView: View {
     }
 
     private func checklistSection(textColor: Color, secondaryColor _: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let placeholderColor = viewModel.note.color.requiresDarkText
+            ? Color(hex: "#71717A")
+            : Color(hex: "#A1A1AA")
+
+        return VStack(alignment: .leading, spacing: 6) {
             ForEach(viewModel.note.checklist) { item in
                 HStack(spacing: 8) {
                     // Tactile Soft Checkbox
@@ -520,10 +576,10 @@ public struct NoteCardView: View {
                                     .foregroundColor(.white)
                             } else {
                                 RoundedRectangle(cornerRadius: 4.5)
-                                    .strokeBorder(textColor.opacity(0.3), lineWidth: 1.2)
+                                    .strokeBorder(textColor.opacity(0.35), lineWidth: 1.2)
                                     .background(
                                         RoundedRectangle(cornerRadius: 4.5)
-                                            .fill(Color.white.opacity(0.55))
+                                            .fill(Color.white.opacity(viewModel.note.color.requiresDarkText ? 0.75 : 0.2))
                                     )
                                     .frame(width: 16, height: 16)
                             }
@@ -538,11 +594,13 @@ public struct NoteCardView: View {
                             get: { item.text },
                             set: { viewModel.updateChecklistItem(id: item.id, text: $0) }
                         ),
-                        prompt: Text("To-do").foregroundColor(textColor.opacity(0.3))
+                        prompt: Text("To-do").foregroundColor(placeholderColor)
                     )
                     .font(.system(size: 13, design: .rounded))
                     .textFieldStyle(.plain)
                     .foregroundStyle(item.isDone ? textColor.opacity(0.4) : textColor)
+                    .tint(textColor)
+                    .accentColor(textColor)
                     .strikethrough(item.isDone, color: textColor.opacity(0.35))
                     .focusEffectDisabled()
                     .onSubmit {
@@ -560,7 +618,7 @@ public struct NoteCardView: View {
                         }) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(textColor.opacity(0.45))
+                                .foregroundColor(textColor.opacity(0.55))
                                 .frame(width: 18, height: 18)
                         }
                         .buttonStyle(.plain)
@@ -581,14 +639,14 @@ public struct NoteCardView: View {
             }) {
                 HStack(spacing: 5) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(textColor.opacity(0.6))
-                    Text("Add a task")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(.system(size: 11.5, weight: .semibold))
                         .foregroundColor(textColor.opacity(0.75))
+                    Text("Add a task")
+                        .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                        .foregroundColor(textColor.opacity(0.85))
                     Spacer()
                 }
-                .padding(.vertical, 3)
+                .padding(.vertical, 3.5)
                 .padding(.horizontal, 4)
                 .contentShape(Rectangle())
             }
@@ -677,69 +735,77 @@ public struct NoteCardView: View {
             )
             .frame(height: 30)
         } else {
-            HStack(spacing: 10) {
-                // Reminder
-                toolbarIconButton(id: "bell", icon: "bell.fill", color: .orange, tooltip: "Set Reminder") {
-                    viewModel.activePopover = .reminder
-                }
+            HStack(spacing: 0) {
+                HStack(spacing: 5) {
+                    // Reminder
+                    toolbarIconButton(id: "bell", icon: "bell.fill", color: .orange, tooltip: "Set Reminder") {
+                        viewModel.activePopover = .reminder
+                    }
 
-                // Alarm
-                toolbarIconButton(id: "alarm", icon: "alarm.fill", color: .purple, tooltip: "Set Alarm") {
-                    viewModel.activePopover = .alarm
-                }
+                    // Alarm
+                    toolbarIconButton(id: "alarm", icon: "alarm.fill", color: .purple, tooltip: "Set Alarm") {
+                        viewModel.activePopover = .alarm
+                    }
 
-                // Timer
-                toolbarIconButton(id: "timer", icon: "hourglass", color: .blue, tooltip: "Focus Timer") {
-                    viewModel.activePopover = .timer
-                }
+                    // Timer
+                    toolbarIconButton(id: "timer", icon: "hourglass", color: .blue, tooltip: "Focus Timer") {
+                        viewModel.activePopover = .timer
+                    }
 
-                // Voice
-                toolbarIconButton(
-                    id: "voice",
-                    icon: "mic.fill",
-                    color: Color(hex: "#FF4D6D"),
-                    tooltip: "Record Voice Note"
-                ) {
-                    viewModel.isRecordingAudio = true
-                }
+                    // Voice
+                    toolbarIconButton(
+                        id: "voice",
+                        icon: "mic.fill",
+                        color: Color(hex: "#FF4D6D"),
+                        tooltip: "Record Voice Note"
+                    ) {
+                        viewModel.isRecordingAudio = true
+                    }
 
-                // Add task checklist
-                toolbarIconButton(
-                    id: "task",
-                    icon: "checklist",
-                    color: Color(hex: "#2EB872"),
-                    tooltip: "Add Checklist Task"
-                ) {
-                    viewModel.addChecklistItem(text: "")
-                }
+                    // Add task checklist
+                    toolbarIconButton(
+                        id: "task",
+                        icon: "checklist",
+                        color: Color(hex: "#2EB872"),
+                        tooltip: "Add Checklist Task"
+                    ) {
+                        viewModel.addChecklistItem(text: "")
+                    }
 
-                Spacer()
+                    // Subtle separator dot
+                    Circle()
+                        .fill(textColor.opacity(0.2))
+                        .frame(width: 2.5, height: 2.5)
+                        .padding(.horizontal, 2)
 
-                // Color Swatch
-                toolbarIconButton(
-                    id: "color",
-                    icon: "paintpalette.fill",
-                    color: textColor.opacity(0.8),
-                    tooltip: "Note Color"
-                ) {
-                    viewModel.activePopover = .color
+                    // Color Swatch
+                    toolbarIconButton(
+                        id: "color",
+                        icon: "paintpalette.fill",
+                        color: textColor.opacity(0.85),
+                        tooltip: "Note Color"
+                    ) {
+                        viewModel.activePopover = .color
+                    }
                 }
+                .padding(.horizontal, 7)
+                .frame(height: 28)
+                .background(
+                    Capsule()
+                        .fill(Color.white.opacity(viewModel.note.color.requiresDarkText ? 0.92 : 0.24))
+                        .background(
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.black.opacity(0.08), lineWidth: 0.6)
+                        )
+                        .shadow(color: Color.black.opacity(0.06), radius: 3, x: 0, y: 1.2)
+                )
+
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 8)
-            .frame(height: 30)
-            .background(
-                Capsule()
-                    .fill(Color.white.opacity(viewModel.note.color.requiresDarkText ? 0.88 : 0.22))
-                    .background(
-                        Capsule()
-                            .fill(.ultraThinMaterial)
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
-                    )
-                    .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1.5)
-            )
         }
     }
 
