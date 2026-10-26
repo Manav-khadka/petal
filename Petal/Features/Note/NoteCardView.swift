@@ -407,7 +407,7 @@ public struct NoteCardView: View {
                 .padding(.horizontal, Spacing.m)
                 .padding(.bottom, 7)
         }
-        .frame(minWidth: 248, minHeight: 150, maxWidth: .infinity, maxHeight: .infinity)
+        .frame(minWidth: 248, maxWidth: .infinity, minHeight: 150, maxHeight: .infinity)
         .background(
             ZStack {
                 bg

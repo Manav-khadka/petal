@@ -74,8 +74,6 @@ public final class NoteViewModel: Identifiable {
         save()
     }
 
-    public var onCollapseToggled: ((Bool) -> Void)?
-
     public func toggleCollapse() {
         note.isCollapsed.toggle()
         save()
