@@ -7,24 +7,29 @@ public struct NoteCardView: View {
     public var speechTranscriber: any PetalSpeechTranscriber
     public var onResize: ((CGSize) -> Void)?
     public var onClose: (() -> Void)?
+    public var onOpenStackList: (() -> Void)?
 
     @State private var hoveredButton: String?
     @State private var hoveredTaskID: UUID?
     @State private var prevResizeTranslation: CGSize = .zero
     @State private var isResizeHovered: Bool = false
+    @State private var isHoveredPeek: Bool = false
+    @State private var peekDismissTask: Task<Void, Never>?
 
     public init(
         viewModel: NoteViewModel,
         audioRecorder: any AudioRecorder,
         speechTranscriber: any PetalSpeechTranscriber,
         onResize: ((CGSize) -> Void)? = nil,
-        onClose: (() -> Void)? = nil
+        onClose: (() -> Void)? = nil,
+        onOpenStackList: (() -> Void)? = nil
     ) {
         self.viewModel = viewModel
         self.audioRecorder = audioRecorder
         self.speechTranscriber = speechTranscriber
         self.onResize = onResize
         self.onClose = onClose
+        self.onOpenStackList = onOpenStackList
     }
 
     public var body: some View {
@@ -46,52 +51,77 @@ public struct NoteCardView: View {
         }
     }
 
+    private var hoverTooltipSummary: String {
+        var lines: [String] = []
+        let title = viewModel.note.title.trimmingCharacters(in: .whitespaces)
+        lines.append(title.isEmpty ? "Untitled Note" : title)
+
+        if !viewModel.note.previewSnippet.isEmpty {
+            lines.append(viewModel.note.previewSnippet)
+        }
+
+        if !viewModel.note.checklist.isEmpty {
+            let done = viewModel.note.checklist.filter(\.isDone).count
+            lines.append("Tasks: \(done)/\(viewModel.note.checklist.count) completed")
+        }
+
+        if let timer = viewModel.note.timerSession {
+            lines.append("Timer: \(timer.formattedRemaining(at: Date()))")
+        }
+
+        if let rem = viewModel.note.reminder {
+            lines.append("Reminder: \(rem.targetDate.formatted(date: .omitted, time: .shortened))")
+        }
+
+        lines.append("Click to expand • Drag to move")
+        return lines.joined(separator: "\n")
+    }
+
     private var collapsedPillView: some View {
         let bg = PetalColor.resolve(noteColor: viewModel.note.color, theme: viewModel.currentTheme)
         let textColor = PetalColor.textColor(for: viewModel.note.color, theme: viewModel.currentTheme)
+        let titlePrefix: String = {
+            let t = viewModel.note.title.trimmingCharacters(in: .whitespaces)
+            if t.isEmpty {
+                return "Note"
+            }
+            if t.count <= 6 {
+                return t
+            }
+            return String(t.prefix(5)) + "…"
+        }()
 
-        return HStack(spacing: 6) {
-            Circle()
-                .fill(Color(hex: viewModel.note.color.hex))
-                .frame(width: 8, height: 8)
-                .overlay(Circle().stroke(Color.black.opacity(0.18), lineWidth: 0.8))
-
-            Text(viewModel.note.title.isEmpty ? "Untitled" : viewModel.note.title)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundColor(textColor)
-                .lineLimit(1)
-                .truncationMode(.tail)
-
-            Spacer(minLength: 4)
-
+        return HStack(spacing: 4.5) {
+            // Icon: timer, reminder, or color dot
             if viewModel.note.hasActiveTimer {
                 Image(systemName: "hourglass")
-                    .font(.system(size: 8.5))
+                    .font(.system(size: 8.5, weight: .bold))
                     .foregroundColor(.blue)
-            }
-            if viewModel.note.hasActiveReminder {
+            } else if viewModel.note.hasActiveReminder {
                 Image(systemName: "bell.fill")
-                    .font(.system(size: 8.5))
+                    .font(.system(size: 8.5, weight: .bold))
                     .foregroundColor(.orange)
-            }
-            if viewModel.note.hasVoiceNote {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 8.5))
-                    .foregroundColor(.purple)
+            } else {
+                Circle()
+                    .fill(Color(hex: viewModel.note.color.hex))
+                    .frame(width: 7.5, height: 7.5)
+                    .overlay(Circle().stroke(Color.black.opacity(0.18), lineWidth: 0.8))
             }
 
-            Button(action: { viewModel.toggleCollapse() }) {
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 8.5, weight: .bold))
-                    .foregroundColor(textColor.opacity(0.65))
-                    .frame(width: 16, height: 16)
-                    .background(Color.black.opacity(0.06))
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
-            .help("Expand note")
+            // Small title prefix
+            Text(titlePrefix)
+                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                .foregroundColor(textColor)
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+
+            // Mini chevron indicator
+            Image(systemName: "chevron.up")
+                .font(.system(size: 7, weight: .bold))
+                .foregroundColor(textColor.opacity(0.45))
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 6.5)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             ZStack {
@@ -103,9 +133,122 @@ public struct NoteCardView: View {
             Capsule()
                 .stroke(Color.black.opacity(0.12), lineWidth: 0.8)
         )
-        .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 1.5)
+        .shadow(color: Color.black.opacity(0.12), radius: 2.5, x: 0, y: 1.2)
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
+        .onTapGesture {
+            isHoveredPeek = false
+            viewModel.toggleCollapse()
+        }
+        .onHover { isHov in
+            peekDismissTask?.cancel()
+            if isHov {
+                isHoveredPeek = true
+            } else {
+                peekDismissTask = Task {
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    if !Task.isCancelled {
+                        isHoveredPeek = false
+                    }
+                }
+            }
+        }
+        .popover(isPresented: $isHoveredPeek, arrowEdge: .bottom) {
+            collapsedHoverInfoCard(textColor: textColor, bg: bg)
+        }
+        .help(hoverTooltipSummary)
+    }
+
+    private func collapsedHoverInfoCard(textColor: Color, bg: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color(hex: viewModel.note.color.hex))
+                    .frame(width: 9, height: 9)
+                    .overlay(Circle().stroke(Color.black.opacity(0.2), lineWidth: 0.8))
+
+                Text(viewModel.note.title.isEmpty ? "Untitled Note" : viewModel.note.title)
+                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .foregroundColor(textColor)
+                    .lineLimit(2)
+
+                Spacer()
+
+                Button(action: {
+                    isHoveredPeek = false
+                    onOpenStackList?()
+                }) {
+                    Image(systemName: "square.stack.3d.up.fill")
+                        .font(.system(size: 9.5, weight: .semibold))
+                        .foregroundColor(textColor.opacity(0.75))
+                        .frame(width: 20, height: 20)
+                        .background(Color.black.opacity(0.06))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("All Notes (Stack Manager)")
+
+                Button(action: {
+                    isHoveredPeek = false
+                    viewModel.toggleCollapse()
+                }) {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 8.5, weight: .bold))
+                        .foregroundColor(textColor.opacity(0.75))
+                        .frame(width: 20, height: 20)
+                        .background(Color.black.opacity(0.06))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Expand note")
+            }
+
+            if !viewModel.note.previewSnippet.isEmpty {
+                Text(viewModel.note.previewSnippet)
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundColor(textColor.opacity(0.8))
+                    .lineLimit(3)
+            }
+
+            if !viewModel.note.checklist.isEmpty {
+                let doneCount = viewModel.note.checklist.filter(\.isDone).count
+                HStack(spacing: 4) {
+                    Image(systemName: "checklist")
+                        .font(.system(size: 9))
+                        .foregroundColor(Color(hex: "#2EB872"))
+                    Text("\(doneCount) of \(viewModel.note.checklist.count) tasks done")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundColor(textColor.opacity(0.75))
+                }
+            }
+
+            if let timer = viewModel.note.timerSession {
+                HStack(spacing: 4) {
+                    Image(systemName: "hourglass")
+                        .font(.system(size: 9))
+                        .foregroundColor(.blue)
+                    Text("Focus: \(timer.formattedRemaining(at: Date()))")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.blue)
+                }
+            }
+
+            if let rem = viewModel.note.reminder {
+                HStack(spacing: 4) {
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 9))
+                        .foregroundColor(.orange)
+                    Text("Reminder: \(rem.targetDate.formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundColor(.orange)
+                }
+            }
+        }
+        .padding(10)
+        .frame(width: 210)
+        .background(bg.opacity(0.96))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isHoveredPeek = false
             viewModel.toggleCollapse()
         }
     }
@@ -276,6 +419,18 @@ public struct NoteCardView: View {
                 .padding(.vertical, 2.5)
                 .background(Color.black.opacity(0.06))
                 .clipShape(Capsule())
+
+            // All Notes & Stack Manager Button
+            Button(action: { onOpenStackList?() }) {
+                Image(systemName: "square.stack.3d.up.fill")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundColor(secondaryColor.opacity(0.75))
+                    .frame(width: 20, height: 20)
+                    .background(Color.black.opacity(0.04))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help("All Notes (Stack Manager & Search)")
 
             // Pin Button
             Button(action: { viewModel.togglePin() }) {

@@ -57,6 +57,11 @@ struct PetalApp: App {
                     AppState.shared.toggleQuickOpen()
                 }
                 .keyboardShortcut("k", modifiers: .command)
+
+                Button("All Notes & Stack List") {
+                    AppState.shared.openAllNotesStackList()
+                }
+                .keyboardShortcut("l", modifiers: .command)
             }
         }
     }

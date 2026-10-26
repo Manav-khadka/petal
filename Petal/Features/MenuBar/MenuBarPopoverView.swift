@@ -207,12 +207,19 @@ public struct MenuBarPopoverView: View {
     }
 
     private var footerBar: some View {
-        HStack {
+        HStack(spacing: 10) {
             Button("All Notes (Board)") {
                 onOpenBoard()
             }
             .buttonStyle(.plain)
             .font(.system(size: 11, design: .rounded))
+            .foregroundColor(.secondary)
+
+            Button("Stack List") {
+                AppState.shared.openAllNotesStackList()
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11, weight: .medium, design: .rounded))
             .foregroundColor(.secondary)
 
             Spacer()

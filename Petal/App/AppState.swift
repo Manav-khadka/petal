@@ -136,6 +136,9 @@ public final class AppState {
             onClose: { [weak self, weak controller] in
                 controller?.close()
                 self?.activeControllers.removeValue(forKey: note.id)
+            },
+            onOpenStackList: { [weak self] in
+                self?.openAllNotesStackList()
             }
         )
 
@@ -220,6 +223,117 @@ public final class AppState {
             )
         )
         settingsWindow.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    public func openAllNotesStackList() {
+        NotesStackListController.shared.show(
+            with: NotesStackListView(
+                notes: notes,
+                activeControllerIDs: Set(activeControllers.keys),
+                onSelectNote: { [weak self] noteID in
+                    self?.bringNoteToFront(noteID)
+                },
+                onToggleCollapse: { [weak self] noteID in
+                    self?.toggleNoteCollapse(noteID)
+                },
+                onNewNote: { [weak self] in
+                    self?.createNewNote()
+                },
+                onCascadeNotes: { [weak self] in
+                    self?.cascadeNotes()
+                },
+                onToggleCollapseAll: { [weak self] in
+                    self?.toggleAllNotesCollapsed()
+                },
+                onDeleteNote: { [weak self] noteID in
+                    self?.deleteNote(noteID)
+                },
+                onDismiss: {
+                    NotesStackListController.shared.hide()
+                }
+            )
+        )
+    }
+
+    public func bringNoteToFront(_ id: Note.ID) {
+        if let controller = activeControllers[id] {
+            if let idx = notes.firstIndex(where: { $0.id == id }), notes[idx].isCollapsed {
+                notes[idx].isCollapsed = false
+                controller.setCollapsed(false, style: notes[idx].collapseStyle, animated: true)
+                Task {
+                    try? await repository.save(notes[idx])
+                }
+            }
+            controller.panel?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        } else if let note = notes.first(where: { $0.id == id }) {
+            var n = note
+            n.isCollapsed = false
+            openFloatingNote(n)
+        }
+    }
+
+    public func toggleNoteCollapse(_ id: Note.ID) {
+        guard let idx = notes.firstIndex(where: { $0.id == id }) else { return }
+        notes[idx].isCollapsed.toggle()
+        let isCol = notes[idx].isCollapsed
+        let style = notes[idx].collapseStyle
+        activeControllers[id]?.setCollapsed(isCol, style: style, animated: true)
+        Task {
+            try? await repository.save(notes[idx])
+        }
+    }
+
+    public func toggleAllNotesCollapsed() {
+        let anyExpanded = notes.contains { !$0.isCollapsed && activeControllers[$0.id] != nil }
+        let targetCollapsed = anyExpanded
+        for idx in notes.indices {
+            let note = notes[idx]
+            guard activeControllers[note.id] != nil else { continue }
+            notes[idx].isCollapsed = targetCollapsed
+            activeControllers[note.id]?.setCollapsed(targetCollapsed, style: note.collapseStyle, animated: true)
+            Task {
+                try? await repository.save(notes[idx])
+            }
+        }
+    }
+
+    public func cascadeNotes() {
+        guard let screen = NSScreen.main else { return }
+        let visible = screen.visibleFrame
+        let startX = visible.minX + 80
+        let startY = visible.maxY - 80
+        let step: CGFloat = 36
+        var currentX = startX
+        var currentY = startY
+        var count = 0
+
+        for (id, controller) in activeControllers {
+            guard let idx = notes.firstIndex(where: { $0.id == id }) else { continue }
+            let note = notes[idx]
+            let w = max(260, note.width)
+            let h = max(260, note.height)
+
+            if currentX + w > visible.maxX || currentY - h < visible.minY {
+                count += 1
+                currentX = startX + CGFloat(count % 4) * 40
+                currentY = startY
+            }
+
+            let newFrame = NSRect(x: currentX, y: currentY - h, width: w, height: h)
+            controller.updateFrame(newFrame, animate: true)
+            notes[idx].frameX = currentX
+            notes[idx].frameY = currentY - h
+            controller.panel?.makeKeyAndOrderFront(nil)
+
+            currentX += step
+            currentY -= step
+
+            Task {
+                try? await repository.save(notes[idx])
+            }
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -312,6 +426,7 @@ public final class AppState {
         sc.onNewNote = { [weak self] in self?.createNewNote() }
         sc.onQuickOpen = { [weak self] in self?.toggleQuickOpen() }
         sc.onToggleAllNotes = { [weak self] in self?.toggleAllNotes() }
+        sc.onStackList = { [weak self] in self?.openAllNotesStackList() }
     }
 
     private func createSampleNotes() async {

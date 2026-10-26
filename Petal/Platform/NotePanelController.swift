@@ -78,8 +78,8 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
 
         let initialRect: NSRect
         if isCollapsed {
-            let targetW: CGFloat = (collapseStyle == .pill) ? 155 : 96
-            let targetH: CGFloat = (collapseStyle == .pill) ? 28 : 96
+            let targetW: CGFloat = (collapseStyle == .pill) ? 86 : 96
+            let targetH: CGFloat = (collapseStyle == .pill) ? 26 : 96
             let y = frame.maxY - targetH
             initialRect = NSRect(x: frame.origin.x, y: y, width: targetW, height: targetH)
         } else {
@@ -138,8 +138,8 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
             if frame.width >= 200, frame.height >= 200 {
                 expandedSize = frame.size
             }
-            let targetW: CGFloat = (style == .pill) ? 155 : 96
-            let targetH: CGFloat = (style == .pill) ? 28 : 96
+            let targetW: CGFloat = (style == .pill) ? 86 : 96
+            let targetH: CGFloat = (style == .pill) ? 26 : 96
             let newY = frame.maxY - targetH
             let newFrame = NSRect(x: frame.minX, y: newY, width: targetW, height: targetH)
             panel.setFrame(newFrame, display: true)

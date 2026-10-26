@@ -11,6 +11,7 @@ public final class GlobalShortcutManager {
     public var onNewNote: (() -> Void)?
     public var onQuickOpen: (() -> Void)?
     public var onToggleAllNotes: (() -> Void)?
+    public var onStackList: (() -> Void)?
 
     private init() {
         setupMonitors()
@@ -51,6 +52,12 @@ public final class GlobalShortcutManager {
         // ⌃⌥H (Control + Option + H) -> Toggle All Notes
         if flags == [.control, .option] && chars == "h" {
             onToggleAllNotes?()
+            return true
+        }
+
+        // ⌃⌥L (Control + Option + L) -> All Notes Stack List
+        if flags == [.control, .option] && chars == "l" {
+            onStackList?()
             return true
         }
 
