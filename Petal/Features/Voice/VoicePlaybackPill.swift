@@ -19,52 +19,61 @@ public struct VoicePlaybackPill: View {
     }
 
     public var body: some View {
-        HStack(spacing: 6) {
-            // Play / Pause
+        let isDarkText = viewModel.note.color.requiresDarkText
+        let primaryInk = PetalColor.textColor(for: viewModel.note.color, theme: viewModel.currentTheme)
+
+        HStack(spacing: 7) {
+            // Tactile Play / Pause Button
             Button(action: togglePlay) {
-                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.primary)
-                    .frame(width: 18, height: 18)
-                    .background(Color.secondary.opacity(0.15))
-                    .clipShape(Circle())
+                ZStack {
+                    Circle()
+                        .fill(isPlaying ? Color(hex: "#FF4D6D") : primaryInk.opacity(0.12))
+                        .frame(width: 22, height: 22)
+
+                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundColor(isPlaying ? .white : primaryInk)
+                        .offset(x: isPlaying ? 0 : 0.8)
+                }
             }
             .buttonStyle(.plain)
 
-            // Mini Waveform
+            // Dynamic Waveform Visualizer
             HStack(spacing: 1.5) {
                 let samples = clip.waveformSamples.isEmpty ? Array(repeating: 0.3, count: 20) : clip.waveformSamples
-                ForEach(0 ..< min(samples.count, 22), id: \.self) { i in
-                    let fraction = Double(i) / Double(min(samples.count, 22))
+                ForEach(0 ..< min(samples.count, 20), id: \.self) { i in
+                    let fraction = Double(i) / Double(min(samples.count, 20))
+                    let isPlayed = fraction <= playbackProgress
                     RoundedRectangle(cornerRadius: 1)
-                        .fill(fraction <= playbackProgress ? Color.primary : Color.secondary.opacity(0.35))
-                        .frame(width: 2, height: max(3, CGFloat(samples[i]) * 14))
+                        .fill(isPlayed ? Color(hex: "#FF4D6D") : primaryInk.opacity(0.25))
+                        .frame(width: 2.2, height: max(4, CGFloat(samples[i]) * 15))
                 }
             }
             .frame(height: 16)
 
             // Duration
             Text(clip.formattedDuration)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.secondary)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundColor(primaryInk.opacity(0.75))
 
-            // Speed Button
+            // Speed Pill
             Button(action: cycleSpeed) {
                 Text(String(format: "%.1fx", playbackRate))
                     .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 4.5)
                     .padding(.vertical, 2)
-                    .background(Color.secondary.opacity(0.12))
-                    .cornerRadius(6)
+                    .background(primaryInk.opacity(0.08))
+                    .foregroundColor(primaryInk.opacity(0.85))
+                    .clipShape(Capsule())
             }
             .buttonStyle(.plain)
 
             // Transcript Toggle
             if let transcript = clip.transcript, !transcript.isEmpty {
                 Button(action: { showTranscript.toggle() }) {
-                    Image(systemName: "quote.bubble")
+                    Image(systemName: "quote.bubble.fill")
                         .font(.system(size: 10))
-                        .foregroundColor(showTranscript ? .blue : .secondary)
+                        .foregroundColor(showTranscript ? Color(hex: "#2563EB") : primaryInk.opacity(0.6))
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $showTranscript) {
@@ -81,15 +90,27 @@ public struct VoicePlaybackPill: View {
                 viewModel.removeVoiceClip()
             }) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(.secondary.opacity(0.8))
+                    .font(.system(size: 8.5, weight: .bold))
+                    .foregroundColor(primaryInk.opacity(0.55))
+                    .frame(width: 16, height: 16)
+                    .background(Color.black.opacity(0.04))
+                    .clipShape(Circle())
             }
             .buttonStyle(.plain)
+            .help("Delete voice note")
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color.primary.opacity(0.06))
-        .cornerRadius(12)
+        .padding(.vertical, 4.5)
+        .background(
+            Capsule()
+                .fill(Color.white.opacity(isDarkText ? 0.88 : 0.2))
+                .background(Capsule().fill(.ultraThinMaterial))
+        )
+        .overlay(
+            Capsule()
+                .stroke(Color.black.opacity(0.07), lineWidth: 0.8)
+        )
+        .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1.5)
         .onDisappear {
             stopAudio()
         }

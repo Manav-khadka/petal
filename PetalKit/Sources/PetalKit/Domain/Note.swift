@@ -95,6 +95,10 @@ public struct Note: Codable, Sendable, Hashable, Identifiable {
         reminder != nil && !(reminder?.isCompleted ?? true)
     }
 
+    public var hasActiveAlarm: Bool {
+        alarm?.isEnabled == true
+    }
+
     public var hasActiveTimer: Bool {
         guard let timer = timerSession, timer.isRunning else { return false }
         if let end = timer.endDate, Date() >= end {

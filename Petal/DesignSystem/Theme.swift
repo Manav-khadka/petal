@@ -123,8 +123,8 @@ public extension NSColor {
 public struct NoteShadowModifier: ViewModifier {
     public func body(content: Content) -> some View {
         content
-            .shadow(color: Color.black.opacity(0.08), radius: 14, x: 0, y: 7)
-            .shadow(color: Color.black.opacity(0.04), radius: 3, x: 0, y: 1)
+            .shadow(color: Color.black.opacity(0.04), radius: 2, x: 0, y: 1)
+            .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 8)
     }
 }
 
