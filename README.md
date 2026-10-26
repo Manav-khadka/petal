@@ -14,6 +14,25 @@
 
 ---
 
+## 📥 Installation
+
+### Option 1: Quick Install (Recommended • No Malware Prompt)
+Run this single command in Terminal:
+```bash
+curl -fsSL https://raw.githubusercontent.com/Manav-khadka/petal/main/install.sh | bash
+```
+*This downloads the latest universal release, installs it to `/Applications/Petal.app`, clears macOS browser quarantine, and launches Petal.*
+
+### Option 2: Manual Download (DMG)
+1. Download **`Petal.dmg`** from [GitHub Releases](https://github.com/Manav-khadka/petal/releases/latest).
+2. Drag **`Petal.app`** to your **Applications** folder.
+3. If macOS says *"Apple could not verify 'Petal' is free of malware..."*:
+   - Open **System Settings > Privacy & Security**.
+   - Scroll down to **Security** and click **"Open Anyway"**.
+   - *(Or in Terminal run: `xattr -cr /Applications/Petal.app`)*
+
+---
+
 ## ✨ Features at a Glance
 
 ### 1. 🗂 Floating Sticky Notes on Your Desk

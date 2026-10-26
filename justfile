@@ -22,9 +22,10 @@ dmg: release
     printf '#!/bin/bash\nDIR="$$(cd "$$(dirname "$$0")" && pwd)"\necho "🌸 Preparing Petal for first launch..."\nif [ -d "/Applications/Petal.app" ]; then\n    xattr -cr "/Applications/Petal.app"\n    echo "✓ Security quarantine cleared for /Applications/Petal.app"\n    open "/Applications/Petal.app"\nelse\n    xattr -cr "$$DIR/Petal.app" 2>/dev/null || true\n    echo "✓ Security quarantine cleared"\n    open "$$DIR/Petal.app"\nfi\necho "🌸 Petal launched successfully!"\n' > /tmp/petal_dmg/"Open Petal (First Time).command"
     chmod +x /tmp/petal_dmg/"Open Petal (First Time).command"
     printf "🌸 Welcome to Petal!\n\n=========================================\nINSTALLATION:\n=========================================\n1. Drag 'Petal.app' to your 'Applications' folder.\n2. Open Petal from Applications.\n\n=========================================\nIF MACOS SHOWS GATEKEEPER WARNING:\n\"Apple could not verify Petal is free of malware...\"\n=========================================\nBecause Petal is an independent open-source app, macOS Gatekeeper flags it on first download.\n\nEASIEST FIX (No Terminal needed):\n1. In Finder / Applications, Right-Click (or Control-Click) 'Petal.app'\n2. Click 'Open' from the menu\n3. Click 'Open' on the confirmation pop-up\n(macOS will remember your choice; subsequent launches open normally!)\n\nOPTION 2:\n1. Open System Settings > Privacy & Security\n2. Scroll down to Security and click 'Open Anyway'\n\nOPTION 3:\nDouble-click 'Open Petal (First Time).command' included in this DMG.\n" > /tmp/petal_dmg/"README.txt"
-    rm -f Petal.dmg Petal-v1.0.0-macOS-Universal.dmg
+    rm -f Petal.dmg Petal-v1.0.0-macOS-Universal.dmg Petal-v1.0.0-macOS-Universal.zip
     hdiutil create -volname "Petal" -srcfolder /tmp/petal_dmg -ov -format UDZO Petal.dmg
     cp Petal.dmg Petal-v1.0.0-macOS-Universal.dmg
+    (cd build_release/Build/Products/Release && ditto -c -k --keepParent Petal.app "$$OLDPWD/Petal-v1.0.0-macOS-Universal.zip")
     rm -rf /tmp/petal_dmg
 
 test:
