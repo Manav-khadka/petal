@@ -117,23 +117,32 @@ public struct NoteCardView: View {
             if t.isEmpty {
                 return "Note"
             }
-            if t.count <= 6 {
-                return t
+            if viewModel.note.hasActiveTimer {
+                if t.count <= 7 {
+                    return t
+                }
+                return String(t.prefix(6)) + "…"
+            } else {
+                if t.count <= 11 {
+                    return t
+                }
+                return String(t.prefix(10)) + "…"
             }
-            return String(t.prefix(5)) + "…"
         }()
 
         return HStack(spacing: 5) {
             // Icon: timer, reminder, alarm, or color dot
             if viewModel.note.hasActiveTimer, let timer = viewModel.note.timerSession {
                 TimelineView(.periodic(from: .now, by: 1.0)) { context in
-                    HStack(spacing: 3) {
+                    HStack(spacing: 3.5) {
                         Image(systemName: "hourglass")
                             .font(.system(size: 8.5, weight: .bold))
                             .foregroundColor(.blue)
                         Text(timer.formattedRemaining(at: context.date))
                             .font(.system(size: 9.5, weight: .bold, design: .monospaced))
                             .foregroundColor(.blue)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                 }
             } else if viewModel.note.hasActiveReminder {
@@ -156,15 +165,16 @@ public struct NoteCardView: View {
                 .font(.system(size: 10.5, weight: .bold, design: .rounded))
                 .foregroundColor(textColor)
                 .lineLimit(1)
+                .truncationMode(.tail)
 
             Spacer(minLength: 0)
 
             // Mini chevron indicator
             Image(systemName: "chevron.up")
-                .font(.system(size: 7, weight: .heavy))
+                .font(.system(size: 7.5, weight: .heavy))
                 .foregroundColor(textColor.opacity(0.45))
         }
-        .padding(.horizontal, 7.5)
+        .padding(.horizontal, 8.5)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             ZStack {
