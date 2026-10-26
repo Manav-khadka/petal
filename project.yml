@@ -1,0 +1,33 @@
+name: Petal
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+
+packages:
+  PetalKit:
+    path: PetalKit
+
+targets:
+  Petal:
+    type: application
+    platform: macOS
+    sources:
+      - path: Petal
+    dependencies:
+      - package: PetalKit
+    settings:
+      base:
+        PRODUCT_NAME: Petal
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.petal
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_HARDENED_RUNTIME: NO
+        INFOPLIST_KEY_LSUIElement: NO
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Petal records voice notes attached to your sticky notes."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Petal transcribes voice notes directly on your Mac."
+        SWIFT_STRICT_CONCURRENCY: complete

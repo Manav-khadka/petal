@@ -1,0 +1,30 @@
+# macOS System Files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Xcode & XcodeGen
+# (project is generated via project.yml)
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+*.xcuserdatad
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+DerivedData/
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Artifacts & Temporary Files
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
