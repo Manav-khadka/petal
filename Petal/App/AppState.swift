@@ -20,10 +20,12 @@ public final class AppState {
     public var activeViewModels: [Note.ID: NoteViewModel] = [:]
     public var areNotesHidden: Bool = false
 
+    public typealias ActivePopover = NoteViewModel.ActivePopover
+
     public let menuBarController = MenuBarController()
 
     private var notifiedTimerIDs = Set<UUID>()
-    private var lastAlarmMinuteKey: String?
+    private var notifiedAlarmMinuteKeys = Set<String>()
     private var notifiedReminderIDs = Set<UUID>()
     private var eventsMonitorTimer: Timer?
 
@@ -53,8 +55,9 @@ public final class AppState {
 
         setupShortcuts()
         MacNotificationManager.shared.requestAuthorization()
-        startScheduledEventsMonitor()
         await loadNotes()
+        initializeScheduledEventsBaseline()
+        startScheduledEventsMonitor()
 
         if notes.isEmpty {
             await createSampleNotes()
@@ -166,14 +169,16 @@ public final class AppState {
         openFloatingNote(note)
     }
 
-    public func openFloatingNote(_ note: Note) {
+    public func openFloatingNote(_ note: Note, activateApp: Bool = false) {
         if let existing = activeControllers[note.id] {
             if let vm = activeViewModels[note.id], vm.note.isCollapsed {
                 vm.toggleCollapse()
             }
             existing.panel?.orderFrontRegardless()
             existing.panel?.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            if activateApp {
+                NSApp.activate(ignoringOtherApps: true)
+            }
             return
         }
 
@@ -291,7 +296,9 @@ public final class AppState {
 
         controller.panel?.orderFrontRegardless()
         controller.panel?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        if activateApp {
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 
     public func bringAllToFront() {
@@ -405,7 +412,7 @@ public final class AppState {
         )
     }
 
-    public func bringNoteToFront(_ id: Note.ID) {
+    public func bringNoteToFront(_ id: Note.ID, activateApp: Bool = false) {
         NotesStackListController.shared.hide()
 
         DispatchQueue.main.async { [weak self] in
@@ -422,16 +429,58 @@ public final class AppState {
                 }
                 controller.panel?.orderFrontRegardless()
                 controller.panel?.makeKeyAndOrderFront(nil)
-                NSApp.activate(ignoringOtherApps: true)
+                if activateApp {
+                    NSApp.activate(ignoringOtherApps: true)
+                }
             } else if let note = self.notes.first(where: { $0.id == id }) {
                 var n = note
                 n.isCollapsed = false
-                self.openFloatingNote(n)
+                self.openFloatingNote(n, activateApp: activateApp)
                 if let controller = self.activeControllers[id] {
                     controller.panel?.orderFrontRegardless()
                     controller.panel?.makeKeyAndOrderFront(nil)
-                    NSApp.activate(ignoringOtherApps: true)
+                    if activateApp {
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
                 }
+            }
+        }
+    }
+
+    public func popupScheduledEvent(for noteID: Note.ID, popover: ActivePopover?) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            if let controller = self.activeControllers[noteID] {
+                if let vm = self.activeViewModels[noteID] {
+                    if vm.note.isCollapsed {
+                        vm.toggleCollapse()
+                    }
+                    if let popover = popover {
+                        vm.activePopover = popover
+                    }
+                    vm.isSparkling = true
+                } else if let idx = self.notes.firstIndex(where: { $0.id == noteID }), self.notes[idx].isCollapsed {
+                    self.notes[idx].isCollapsed = false
+                    controller.setCollapsed(false, style: self.notes[idx].collapseStyle, animated: true)
+                    Task {
+                        try? await self.repository.save(self.notes[idx])
+                    }
+                }
+                controller.panel?.orderFrontRegardless()
+                controller.panel?.makeKeyAndOrderFront(nil)
+            } else if let note = self.notes.first(where: { $0.id == noteID }) {
+                var n = note
+                n.isCollapsed = false
+                self.openFloatingNote(n, activateApp: false)
+                if let vm = self.activeViewModels[noteID] {
+                    if let popover = popover {
+                        vm.activePopover = popover
+                    }
+                    vm.isSparkling = true
+                }
+                self.activeControllers[noteID]?.panel?.orderFrontRegardless()
+                self.activeControllers[noteID]?.panel?.makeKeyAndOrderFront(nil)
             }
         }
     }
@@ -668,6 +717,22 @@ public final class AppState {
         }
     }
 
+    private func initializeScheduledEventsBaseline() {
+        let now = Date()
+        for note in notes {
+            if let timer = note.timerSession {
+                if let end = timer.endDate, now >= end {
+                    notifiedTimerIDs.insert(timer.id)
+                }
+            }
+            if let reminder = note.reminder {
+                if now.timeIntervalSince(reminder.targetDate) >= 60 || reminder.isCompleted {
+                    notifiedReminderIDs.insert(note.id)
+                }
+            }
+        }
+    }
+
     private func startScheduledEventsMonitor() {
         eventsMonitorTimer?.invalidate()
         eventsMonitorTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -690,10 +755,25 @@ public final class AppState {
                 if now >= end {
                     if !notifiedTimerIDs.contains(timer.id) {
                         notifiedTimerIDs.insert(timer.id)
-                        SoundPlayer.shared.playTimerFinished()
-                        bringNoteToFront(note.id)
+                        if now.timeIntervalSince(end) <= 60 {
+                            SoundPlayer.shared.playTimerFinished()
+                            popupScheduledEvent(for: note.id, popover: .timer)
+                        }
                         if let vm = activeViewModels[note.id] {
-                            vm.isSparkling = true
+                            if var session = vm.note.timerSession {
+                                session.isPaused = true
+                                session.remainingSecondsWhenPaused = 0
+                                session.endDate = nil
+                                vm.note.timerSession = session
+                                vm.save()
+                            }
+                        } else if let idx = notes.firstIndex(where: { $0.id == note.id }) {
+                            notes[idx].timerSession?.isPaused = true
+                            notes[idx].timerSession?.remainingSecondsWhenPaused = 0
+                            notes[idx].timerSession?.endDate = nil
+                            Task {
+                                try? await repository.save(notes[idx])
+                            }
                         }
                     }
                 }
@@ -705,28 +785,31 @@ public final class AppState {
                 let matchesDay = alarm.repeatDays.isEmpty || alarm.repeatDays.contains(currentWeekday)
                 if matchesTime && matchesDay {
                     let key = "\(note.id.uuidString)_\(currentHour):\(currentMinute)"
-                    if lastAlarmMinuteKey != key {
-                        lastAlarmMinuteKey = key
+                    if !notifiedAlarmMinuteKeys.contains(key) {
+                        notifiedAlarmMinuteKeys.insert(key)
                         SoundPlayer.shared.play(soundName: alarm.soundName)
                         SoundPlayer.shared.playAlarmRinging()
-                        bringNoteToFront(note.id)
-                        if let vm = activeViewModels[note.id] {
-                            vm.isSparkling = true
-                        }
+                        popupScheduledEvent(for: note.id, popover: .alarm)
                     }
                 }
             }
 
             // 3. Reminders
-            if let reminder = note.reminder {
+            if let reminder = note.reminder, !reminder.isCompleted {
                 let diff = now.timeIntervalSince(reminder.targetDate)
                 if diff >= 0 && diff < 60 {
                     if !notifiedReminderIDs.contains(note.id) {
                         notifiedReminderIDs.insert(note.id)
                         SoundPlayer.shared.playReminderChime()
-                        bringNoteToFront(note.id)
+                        popupScheduledEvent(for: note.id, popover: .reminder)
                         if let vm = activeViewModels[note.id] {
-                            vm.isSparkling = true
+                            vm.note.reminder?.isCompleted = true
+                            vm.save()
+                        } else if let idx = notes.firstIndex(where: { $0.id == note.id }) {
+                            notes[idx].reminder?.isCompleted = true
+                            Task {
+                                try? await repository.save(notes[idx])
+                            }
                         }
                     }
                 }

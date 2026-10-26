@@ -24,6 +24,7 @@ public struct NoteCardView: View {
     @State private var isCollapseHovered: Bool = false
     @State private var isCloseHovered: Bool = false
     @State private var peekDismissTask: Task<Void, Never>?
+    @FocusState private var focusedTaskID: UUID?
 
     private func updateHoverState(pill: Bool? = nil, popover: Bool? = nil) {
         if let pill = pill { isPillHovered = pill }
@@ -902,9 +903,13 @@ public struct NoteCardView: View {
                     .accentColor(textColor)
                     .strikethrough(item.isDone, color: textColor.opacity(0.35))
                     .focusEffectDisabled()
+                    .focused($focusedTaskID, equals: item.id)
                     .onSubmit {
                         if !item.text.trimmingCharacters(in: .whitespaces).isEmpty {
-                            viewModel.addChecklistItem(text: "")
+                            let newItem = viewModel.addChecklistItem(text: "")
+                            DispatchQueue.main.async {
+                                focusedTaskID = newItem.id
+                            }
                         }
                     }
 
@@ -939,7 +944,10 @@ public struct NoteCardView: View {
 
             // Clean "+ Add a task" button
             Button(action: {
-                viewModel.addChecklistItem(text: "")
+                let newItem = viewModel.addChecklistItem(text: "")
+                DispatchQueue.main.async {
+                    focusedTaskID = newItem.id
+                }
             }) {
                 HStack(spacing: 5) {
                     Image(systemName: "plus.circle.fill")
@@ -1137,7 +1145,10 @@ public struct NoteCardView: View {
                         tooltip: "Add Checklist Task",
                         hasActiveState: viewModel.note.checklist.contains(where: { !$0.isDone })
                     ) {
-                        viewModel.addChecklistItem(text: "")
+                        let newItem = viewModel.addChecklistItem(text: "")
+                        DispatchQueue.main.async {
+                            focusedTaskID = newItem.id
+                        }
                     }
 
                     // Calendar & Dates

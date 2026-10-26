@@ -87,14 +87,16 @@ public final class NoteViewModel: Identifiable {
         setCollapsed(!note.isCollapsed)
     }
 
-    public func addChecklistItem(text: String = "") {
+    @discardableResult
+    public func addChecklistItem(text: String = "") -> ChecklistItem {
         if text.isEmpty, let last = note.checklist.last, last.text.trimmingCharacters(in: .whitespaces).isEmpty {
-            return
+            return last
         }
         let item = ChecklistItem(text: text, isDone: false)
         note.checklist.append(item)
         note.updatedAt = dateProvider.now
         save()
+        return item
     }
 
     public func updateChecklistItem(id: UUID, text: String) {

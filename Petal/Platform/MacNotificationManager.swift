@@ -144,8 +144,13 @@ public final class MacNotificationManager: NSObject, NotificationScheduler, @unc
     ) {
         if let idStr = response.notification.request.content.userInfo["noteID"] as? String,
            let uuid = UUID(uuidString: idStr) {
+            let isAlarm = (response.notification.request.content.userInfo["isAlarm"] as? Bool) ?? false
+            let isTimer = (response.notification.request.content.userInfo["isTimer"] as? Bool) ?? false ||
+                response.notification.request.identifier.starts(with: "timer_")
+            let popover: NoteViewModel.ActivePopover? = isAlarm ? .alarm : (isTimer ? .timer : .reminder)
+
             DispatchQueue.main.async {
-                AppState.shared.bringNoteToFront(uuid)
+                AppState.shared.popupScheduledEvent(for: uuid, popover: popover)
             }
         }
         completionHandler()
