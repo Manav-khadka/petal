@@ -9,6 +9,7 @@ public struct QuickOpenView: View {
 
     @State private var query: String = ""
     @State private var selectedIndex: Int = 0
+    @FocusState private var isFieldFocused: Bool
 
     public init(
         notes: [Note],
@@ -55,6 +56,7 @@ public struct QuickOpenView: View {
                 TextField("Search notes or type 'new', 'timer 10m', 'remind 5pm'...", text: $query)
                     .textFieldStyle(.plain)
                     .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .focused($isFieldFocused)
                     .onSubmit {
                         executeSelection(collapsed: false)
                     }
@@ -152,6 +154,9 @@ public struct QuickOpenView: View {
                 .stroke(Color.primary.opacity(0.1), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.2), radius: 24, x: 0, y: 12)
+        .onAppear {
+            isFieldFocused = true
+        }
     }
 
     private func executeSelection(collapsed: Bool) {

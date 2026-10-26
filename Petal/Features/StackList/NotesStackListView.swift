@@ -332,6 +332,15 @@ public struct NotesStackListView: View {
 
                     Spacer()
 
+                    // Date Tag
+                    HStack(spacing: 3) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 8.5))
+                        Text(note.createdAt.formatted(.dateTime.month(.abbreviated).day()))
+                            .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    }
+                    .foregroundColor(Color(hex: "#6B7280"))
+
                     // Status Chips
                     if isOpen {
                         Text(note.isCollapsed ? "Pill" : "On Desk")
@@ -368,13 +377,15 @@ public struct NotesStackListView: View {
                 if note.hasActiveTimer || note.hasActiveReminder {
                     HStack(spacing: 6) {
                         if let timer = note.timerSession {
-                            HStack(spacing: 3) {
-                                Image(systemName: "hourglass")
-                                    .font(.system(size: 9))
-                                Text(timer.formattedRemaining(at: Date()))
-                                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                            TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                                HStack(spacing: 3) {
+                                    Image(systemName: "hourglass")
+                                        .font(.system(size: 9))
+                                    Text(timer.formattedRemaining(at: context.date))
+                                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                                }
+                                .foregroundColor(.blue)
                             }
-                            .foregroundColor(.blue)
                         }
 
                         if let rem = note.reminder {

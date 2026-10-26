@@ -68,7 +68,7 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
     public var onFrameChanged: ((CGRect) -> Void)?
     public var onEscapePressed: (() -> Void)?
     public var onAutoShrinkRequested: (() -> Void)?
-    private var expandedSize: CGSize = .init(width: 280, height: 220)
+    private var expandedSize: CGSize = .init(width: 280, height: 320)
 
     public init(noteID: Note.ID) {
         self.noteID = noteID

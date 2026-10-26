@@ -1,12 +1,35 @@
 import AppKit
+import Carbon
 import Foundation
+
+// Global C-function callback for Carbon event handler
+private func carbonHotKeyEventHandler(
+    _: EventHandlerCallRef?,
+    event: EventRef?,
+    _: UnsafeMutableRawPointer?
+) -> OSStatus {
+    guard let event = event else { return noErr }
+    var hotKeyID = EventHotKeyID()
+    let status = GetEventParameter(
+        event,
+        EventParamName(kEventParamDirectObject),
+        EventParamType(typeEventHotKeyID),
+        nil,
+        MemoryLayout<EventHotKeyID>.size,
+        nil,
+        &hotKeyID
+    )
+    guard status == noErr else { return noErr }
+
+    DispatchQueue.main.async {
+        GlobalShortcutManager.shared.dispatchHotKey(id: hotKeyID.id)
+    }
+    return noErr
+}
 
 @MainActor
 public final class GlobalShortcutManager {
     public static let shared = GlobalShortcutManager()
-
-    private var globalMonitor: Any?
-    private var localMonitor: Any?
 
     public var onNewNote: (() -> Void)?
     public var onQuickOpen: (() -> Void)?
@@ -15,19 +38,112 @@ public final class GlobalShortcutManager {
     public var onCollapseAll: (() -> Void)?
     public var onExpandAll: (() -> Void)?
 
-    private init() {
-        setupMonitors()
+    private var localMonitor: Any?
+    private var eventHandler: EventHandlerRef?
+    private var hotKeyRefs: [EventHotKeyRef] = []
+
+    public enum HotKeyID: UInt32 {
+        case quickOpen = 1
+        case quickOpenOptionSpace = 2
+        case quickOpenCmdShiftSpace = 3
+        case newNote = 4
+        case newNoteCmdOpt = 5
+        case stackList = 6
+        case stackListCmdOpt = 7
+        case collapseAll = 8
+        case expandAll = 9
+        case toggleAll = 10
     }
 
-    private func setupMonitors() {
-        // Global monitor for when other apps are active
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleKeyEvent(event)
-        }
+    private init() {
+        setupCarbonHotKeys()
+        setupLocalMonitors()
+    }
 
+    private func setupCarbonHotKeys() {
+        var eventSpec = EventTypeSpec(
+            eventClass: OSType(kEventClassKeyboard),
+            eventKind: UInt32(kEventHotKeyPressed)
+        )
+
+        InstallEventHandler(
+            GetApplicationEventTarget(),
+            carbonHotKeyEventHandler,
+            1,
+            &eventSpec,
+            nil,
+            &eventHandler
+        )
+
+        // 1. Quick Open / Command Palette:
+        // ⌃⌥Space
+        registerCarbonHotKey(id: .quickOpen, keyCode: UInt32(kVK_Space), modifiers: UInt32(controlKey | optionKey))
+        // ⌥Space
+        registerCarbonHotKey(id: .quickOpenOptionSpace, keyCode: UInt32(kVK_Space), modifiers: UInt32(optionKey))
+        // ⌘⇧Space
+        registerCarbonHotKey(id: .quickOpenCmdShiftSpace, keyCode: UInt32(kVK_Space), modifiers: UInt32(cmdKey | shiftKey))
+
+        // 2. New Note:
+        // ⌃⌥N
+        registerCarbonHotKey(id: .newNote, keyCode: UInt32(kVK_ANSI_N), modifiers: UInt32(controlKey | optionKey))
+        // ⌥⌘N
+        registerCarbonHotKey(id: .newNoteCmdOpt, keyCode: UInt32(kVK_ANSI_N), modifiers: UInt32(optionKey | cmdKey))
+
+        // 3. Stack List:
+        // ⌃⌥L
+        registerCarbonHotKey(id: .stackList, keyCode: UInt32(kVK_ANSI_L), modifiers: UInt32(controlKey | optionKey))
+        // ⌥⌘L
+        registerCarbonHotKey(id: .stackListCmdOpt, keyCode: UInt32(kVK_ANSI_L), modifiers: UInt32(optionKey | cmdKey))
+
+        // 4. Collapse All: ⌃⌥C
+        registerCarbonHotKey(id: .collapseAll, keyCode: UInt32(kVK_ANSI_C), modifiers: UInt32(controlKey | optionKey))
+
+        // 5. Expand All / See All: ⌃⌥E
+        registerCarbonHotKey(id: .expandAll, keyCode: UInt32(kVK_ANSI_E), modifiers: UInt32(controlKey | optionKey))
+
+        // 6. Toggle All Notes: ⌃⌥H
+        registerCarbonHotKey(id: .toggleAll, keyCode: UInt32(kVK_ANSI_H), modifiers: UInt32(controlKey | optionKey))
+    }
+
+    private func registerCarbonHotKey(id: HotKeyID, keyCode: UInt32, modifiers: UInt32) {
+        var hotKeyRef: EventHotKeyRef?
+        let hotKeyID = EventHotKeyID(signature: OSType(0x50544C4B), id: id.rawValue) // 'PTLK'
+        let status = RegisterEventHotKey(
+            keyCode,
+            modifiers,
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &hotKeyRef
+        )
+        if status == noErr, let ref = hotKeyRef {
+            hotKeyRefs.append(ref)
+        }
+    }
+
+    public func dispatchHotKey(id: UInt32) {
+        switch id {
+        case HotKeyID.quickOpen.rawValue, HotKeyID.quickOpenOptionSpace.rawValue, HotKeyID.quickOpenCmdShiftSpace.rawValue:
+            onQuickOpen?()
+        case HotKeyID.newNote.rawValue, HotKeyID.newNoteCmdOpt.rawValue:
+            onNewNote?()
+        case HotKeyID.stackList.rawValue, HotKeyID.stackListCmdOpt.rawValue:
+            onStackList?()
+        case HotKeyID.collapseAll.rawValue:
+            onCollapseAll?()
+        case HotKeyID.expandAll.rawValue:
+            onExpandAll?()
+        case HotKeyID.toggleAll.rawValue:
+            onToggleAllNotes?()
+        default:
+            break
+        }
+    }
+
+    private func setupLocalMonitors() {
         // Local monitor when Petal is key
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if self?.handleKeyEvent(event) == true {
+            if self?.handleLocalKeyEvent(event) == true {
                 return nil
             }
             return event
@@ -35,43 +151,25 @@ public final class GlobalShortcutManager {
     }
 
     @discardableResult
-    private func handleKeyEvent(_ event: NSEvent) -> Bool {
+    private func handleLocalKeyEvent(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let chars = event.charactersIgnoringModifiers?.lowercased()
 
-        // ⌃⌥N (Control + Option + N) -> New Note
-        if flags == [.control, .option] && chars == "n" {
+        // ⌘N -> New Note when app is key
+        if flags == .command && chars == "n" {
             onNewNote?()
             return true
         }
 
-        // ⌃⌥Space (Control + Option + Space) -> Quick Open
-        if flags == [.control, .option] && event.keyCode == 49 { // 49 is Space
-            onQuickOpen?()
-            return true
-        }
-
-        // ⌃⌥H (Control + Option + H) -> Toggle All Notes
-        if flags == [.control, .option] && chars == "h" {
-            onToggleAllNotes?()
-            return true
-        }
-
-        // ⌃⌥L (Control + Option + L) -> All Notes Stack List
-        if flags == [.control, .option] && chars == "l" {
+        // ⌘L -> Stack List when app is key
+        if flags == .command && chars == "l" {
             onStackList?()
             return true
         }
 
-        // ⌃⌥C (Control + Option + C) -> Collapse All Notes to Pills
-        if flags == [.control, .option] && chars == "c" {
-            onCollapseAll?()
-            return true
-        }
-
-        // ⌃⌥E (Control + Option + E) -> Expand All Notes / See All
-        if flags == [.control, .option] && chars == "e" {
-            onExpandAll?()
+        // ⌘K -> Quick Open when app is key
+        if flags == .command && chars == "k" {
+            onQuickOpen?()
             return true
         }
 

@@ -12,11 +12,15 @@ public struct TimerPopoverView: View {
     public var body: some View {
         VStack(spacing: Spacing.m) {
             HStack {
-                MascotFaceView(
-                    mood: (viewModel.note.timerSession?.isRunning ?? false) ? .awake : .sleeping,
-                    tint: .blue,
-                    size: 24
-                )
+                TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                    let isRunning = (viewModel.note.timerSession?.isRunning ?? false) &&
+                        !(viewModel.note.timerSession?.isFinished(at: context.date) ?? true)
+                    MascotFaceView(
+                        mood: isRunning ? .awake : .sleeping,
+                        tint: .blue,
+                        size: 24
+                    )
+                }
                 Text("Focus Timer")
                     .font(.system(.headline, design: .rounded))
                 Spacer()
@@ -27,6 +31,29 @@ public struct TimerPopoverView: View {
                     .buttonStyle(.plain)
                     .foregroundColor(.red)
                     .font(.caption)
+                }
+            }
+
+            // Live Countdown Display when running
+            if let timer = viewModel.note.timerSession {
+                TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                    VStack(spacing: 6) {
+                        Text(timer.formattedRemaining(at: context.date))
+                            .font(.system(size: 32, weight: .bold, design: .monospaced))
+                            .foregroundColor(timer.isPaused ? .secondary : Color(hex: "#2563EB"))
+
+                        ProgressView(value: timer.progress(at: context.date))
+                            .progressViewStyle(.linear)
+                            .tint(Color(hex: "#2563EB"))
+
+                        Text(timer.isPaused ? "Paused" : (timer.isFinished(at: context.date) ? "Finished" : "Focusing..."))
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.blue.opacity(0.08))
+                    .cornerRadius(10)
                 }
             }
 
@@ -85,7 +112,7 @@ public struct TimerPopoverView: View {
             }
         }
         .padding(Spacing.m)
-        .frame(width: 250)
+        .frame(width: 260)
         .onAppear {
             if let timer = viewModel.note.timerSession {
                 selectedMinutes = Int(timer.durationMinutes)

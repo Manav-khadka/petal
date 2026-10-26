@@ -116,10 +116,17 @@ public struct NoteCardView: View {
 
         return HStack(spacing: 4.5) {
             // Icon: timer, reminder, or color dot
-            if viewModel.note.hasActiveTimer {
-                Image(systemName: "hourglass")
-                    .font(.system(size: 8.5, weight: .bold))
-                    .foregroundColor(.blue)
+            if viewModel.note.hasActiveTimer, let timer = viewModel.note.timerSession {
+                TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                    HStack(spacing: 3) {
+                        Image(systemName: "hourglass")
+                            .font(.system(size: 8.5, weight: .bold))
+                            .foregroundColor(.blue)
+                        Text(timer.formattedRemaining(at: context.date))
+                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                            .foregroundColor(.blue)
+                    }
+                }
             } else if viewModel.note.hasActiveReminder {
                 Image(systemName: "bell.fill")
                     .font(.system(size: 8.5, weight: .bold))
@@ -275,14 +282,26 @@ public struct NoteCardView: View {
                 }
             }
 
+            // Date badge
+            HStack(spacing: 4) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 8.5))
+                    .foregroundColor(textColor.opacity(0.65))
+                Text(viewModel.note.createdAt.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundColor(textColor.opacity(0.75))
+            }
+
             if let timer = viewModel.note.timerSession {
-                HStack(spacing: 4) {
-                    Image(systemName: "hourglass")
-                        .font(.system(size: 9))
-                        .foregroundColor(.blue)
-                    Text("Focus: \(timer.formattedRemaining(at: Date()))")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(.blue)
+                TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                    HStack(spacing: 4) {
+                        Image(systemName: "hourglass")
+                            .font(.system(size: 9))
+                            .foregroundColor(.blue)
+                        Text("Focus: \(timer.formattedRemaining(at: context.date))")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(.blue)
+                    }
                 }
             }
 
@@ -414,6 +433,12 @@ public struct NoteCardView: View {
                 .padding(.horizontal, Spacing.m)
                 .padding(.top, 6)
 
+            // Date Badge (Interactive Calendar)
+            noteDateBadge(secondaryColor: secondaryColor)
+                .padding(.horizontal, Spacing.m)
+                .padding(.top, 2)
+                .padding(.bottom, 3)
+
             // Body & Checklist
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -481,6 +506,8 @@ public struct NoteCardView: View {
                 AlarmPopoverView(viewModel: viewModel)
             case .timer:
                 TimerPopoverView(viewModel: viewModel)
+            case .calendar:
+                CalendarPopoverView(viewModel: viewModel)
             }
         }
     }
@@ -595,6 +622,31 @@ public struct NoteCardView: View {
             .accentColor(textColor)
             .focusEffectDisabled()
             .autocorrectionDisabled(true)
+    }
+
+    private func noteDateBadge(secondaryColor: Color) -> some View {
+        Button(action: {
+            viewModel.activePopover = .calendar
+        }) {
+            HStack(spacing: 4.5) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 9, weight: .semibold))
+                Text(viewModel.note.createdAt.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                if viewModel.note.hasActiveReminder {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 4, height: 4)
+                }
+            }
+            .foregroundColor(secondaryColor.opacity(0.85))
+            .padding(.horizontal, 6.5)
+            .padding(.vertical, 2)
+            .background(Color.black.opacity(0.04))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help("View calendar & schedule for this note")
     }
 
     private func bodyEditor(textColor: Color) -> some View {
@@ -765,22 +817,24 @@ public struct NoteCardView: View {
 
             // Timer Progress Chip
             if let timer = viewModel.note.timerSession {
-                HStack(spacing: 4) {
-                    MascotFaceView(
-                        mood: timer.isRunning ? .awake : .sleeping,
-                        tint: .blue,
-                        size: 16
-                    )
-                    Text(timer.formattedRemaining(at: Date()))
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(Color.blue.opacity(0.15))
-                .foregroundColor(.blue)
-                .cornerRadius(10)
-                .onTapGesture {
-                    viewModel.activePopover = .timer
+                TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                    HStack(spacing: 4) {
+                        MascotFaceView(
+                            mood: (timer.isRunning && !timer.isFinished(at: context.date)) ? .awake : .sleeping,
+                            tint: .blue,
+                            size: 16
+                        )
+                        Text(timer.formattedRemaining(at: context.date))
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.blue.opacity(0.15))
+                    .foregroundColor(.blue)
+                    .cornerRadius(10)
+                    .onTapGesture {
+                        viewModel.activePopover = .timer
+                    }
                 }
             }
 
@@ -838,6 +892,16 @@ public struct NoteCardView: View {
                         tooltip: "Add Checklist Task"
                     ) {
                         viewModel.addChecklistItem(text: "")
+                    }
+
+                    // Calendar & Dates
+                    toolbarIconButton(
+                        id: "calendar",
+                        icon: "calendar",
+                        color: Color(hex: "#2563EB"),
+                        tooltip: "Calendar & Dates"
+                    ) {
+                        viewModel.activePopover = .calendar
                     }
 
                     // Subtle separator dot

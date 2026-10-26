@@ -542,17 +542,19 @@ public struct BoardView: View {
                     .cornerRadius(5)
 
                 if note.hasActiveTimer, let timer = note.timerSession {
-                    HStack(spacing: 3) {
-                        Image(systemName: "hourglass")
-                            .font(.system(size: 8.5))
-                        Text(timer.formattedRemaining(at: Date()))
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                        HStack(spacing: 3) {
+                            Image(systemName: "hourglass")
+                                .font(.system(size: 8.5))
+                            Text(timer.formattedRemaining(at: context.date))
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        }
+                        .foregroundColor(.blue)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2.5)
+                        .background(Color.blue.opacity(0.12))
+                        .cornerRadius(5)
                     }
-                    .foregroundColor(.blue)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2.5)
-                    .background(Color.blue.opacity(0.12))
-                    .cornerRadius(5)
                 }
 
                 Spacer()

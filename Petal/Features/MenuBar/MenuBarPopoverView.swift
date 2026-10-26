@@ -261,41 +261,43 @@ public struct MenuBarPopoverView: View {
     }
 
     private func timerBanner(note: Note, timer: TimerSession) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "hourglass")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.blue)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(note.title.isEmpty ? "Focus Timer" : note.title)
-                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                Text(timer.formattedRemaining(at: Date()) + " remaining")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+        TimelineView(.periodic(from: .now, by: 1.0)) { context in
+            HStack(spacing: 8) {
+                Image(systemName: "hourglass")
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.blue)
-            }
 
-            Spacer()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(note.title.isEmpty ? "Focus Timer" : note.title)
+                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    Text(timer.formattedRemaining(at: context.date) + " remaining")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(.blue)
+                }
 
-            Button("Open") {
-                onOpenNote(note)
+                Spacer()
+
+                Button("Open") {
+                    onOpenNote(note)
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundColor(.blue)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(Color.blue.opacity(0.12))
+                .cornerRadius(6)
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 10, weight: .semibold, design: .rounded))
-            .foregroundColor(.blue)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(Color.blue.opacity(0.12))
-            .cornerRadius(6)
+            .padding(8)
+            .background(Color.blue.opacity(0.08))
+            .cornerRadius(9)
+            .overlay(
+                RoundedRectangle(cornerRadius: 9)
+                    .stroke(Color.blue.opacity(0.18), lineWidth: 0.8)
+            )
         }
-        .padding(8)
-        .background(Color.blue.opacity(0.08))
-        .cornerRadius(9)
-        .overlay(
-            RoundedRectangle(cornerRadius: 9)
-                .stroke(Color.blue.opacity(0.18), lineWidth: 0.8)
-        )
     }
 
     private var recentNotesGrid: some View {

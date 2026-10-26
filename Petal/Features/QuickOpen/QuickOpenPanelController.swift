@@ -2,11 +2,21 @@ import AppKit
 import PetalKit
 import SwiftUI
 
+public final class QuickOpenPanel: NSPanel {
+    override public var canBecomeKey: Bool {
+        true
+    }
+
+    override public var canBecomeMain: Bool {
+        true
+    }
+}
+
 @MainActor
 public final class QuickOpenPanelController: NSObject, NSWindowDelegate {
     public static let shared = QuickOpenPanelController()
 
-    private var panel: NSPanel?
+    private var panel: QuickOpenPanel?
 
     override private init() {
         super.init()
@@ -29,15 +39,15 @@ public final class QuickOpenPanelController: NSObject, NSWindowDelegate {
             let x = screen.visibleFrame.midX - (width / 2)
             let y = screen.visibleFrame.midY + 80 // slightly above center
 
-            let newPanel = NSPanel(
+            let newPanel = QuickOpenPanel(
                 contentRect: NSRect(x: x, y: y, width: width, height: height),
-                styleMask: [.borderless, .nonactivatingPanel],
+                styleMask: [.borderless],
                 backing: .buffered,
                 defer: false
             )
             newPanel.isOpaque = false
             newPanel.backgroundColor = .clear
-            newPanel.hasShadow = false
+            newPanel.hasShadow = true
             newPanel.level = .floating
             newPanel.delegate = self
             newPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -45,6 +55,8 @@ public final class QuickOpenPanelController: NSObject, NSWindowDelegate {
         }
 
         panel?.contentView = NSHostingView(rootView: view)
+        NSApp.activate(ignoringOtherApps: true)
+        panel?.orderFrontRegardless()
         panel?.makeKeyAndOrderFront(nil)
     }
 

@@ -119,20 +119,23 @@ public final class AppState {
         // Cascade positions slightly
         let offset = CGFloat(activeControllers.count * 30)
         let x = visible.minX + 120 + offset
-        let y = visible.maxY - 340 - offset
+        let y = max(visible.minY + 40, visible.maxY - 380 - offset)
 
         let note = Note(
             title: title,
             body: body,
             color: NoteColor.butter,
             frameX: x,
-            frameY: y
+            frameY: y,
+            width: 280,
+            height: 320
         )
 
         notes.insert(note, at: 0)
         Task {
             try? await repository.save(note)
         }
+        NSApp.activate(ignoringOtherApps: true)
         openFloatingNote(note)
     }
 
@@ -506,6 +509,7 @@ public final class AppState {
     }
 
     public func toggleQuickOpen() {
+        NSApp.activate(ignoringOtherApps: true)
         QuickOpenPanelController.shared.toggle(
             with: QuickOpenView(
                 notes: notes,
@@ -569,7 +573,7 @@ public final class AppState {
         case let .startTimer(minutes):
             createNewNote(title: "\(minutes)m Focus")
             if let first = notes.first {
-                let vm = NoteViewModel(
+                let vm = activeViewModels[first.id] ?? NoteViewModel(
                     note: first,
                     repository: repository,
                     notificationScheduler: notificationScheduler
@@ -579,7 +583,7 @@ public final class AppState {
         case let .createReminder(title, date):
             createNewNote(title: title)
             if let first = notes.first {
-                let vm = NoteViewModel(
+                let vm = activeViewModels[first.id] ?? NoteViewModel(
                     note: first,
                     repository: repository,
                     notificationScheduler: notificationScheduler

@@ -19,6 +19,7 @@ public final class NoteViewModel: Identifiable {
         case reminder
         case alarm
         case timer
+        case calendar
 
         public var id: String {
             rawValue
