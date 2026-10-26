@@ -139,6 +139,31 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
         newPanel.orderFrontRegardless()
         newPanel.makeKeyAndOrderFront(nil)
         panel = newPanel
+        ensureOnScreen()
+    }
+
+    public func ensureOnScreen() {
+        guard let panel = panel, let screen = panel.screen ?? NSScreen.main else { return }
+        var frame = panel.frame
+        let visible = screen.visibleFrame
+        let inset: CGFloat = 16.0
+
+        let minX = visible.minX + inset
+        let maxX = max(minX, visible.maxX - frame.width - inset)
+        let minY = visible.minY + inset
+        let maxY = max(minY, visible.maxY - frame.height - inset)
+
+        let clampedX = min(max(minX, frame.origin.x), maxX)
+        let clampedY = min(max(minY, frame.origin.y), maxY)
+
+        if clampedX != frame.origin.x || clampedY != frame.origin.y {
+            frame.origin.x = clampedX
+            frame.origin.y = clampedY
+            panel.setFrame(frame, display: true, animate: false)
+            DispatchQueue.main.async { [weak self] in
+                self?.onFrameChanged?(frame)
+            }
+        }
     }
 
     public func updateWindowLevel(panel: NSPanel, isPinned: Bool, isOnDesktop: Bool) {
@@ -167,8 +192,17 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
         } else {
             let targetW = max(Self.minimumExpandedWidth, max(280, expandedSize.width))
             let targetH = max(Self.minimumExpandedHeight, max(320, expandedSize.height))
-            let newY = frame.maxY - targetH
-            let newFrame = NSRect(x: frame.minX, y: newY, width: targetW, height: targetH)
+            var newX = frame.minX
+            var newY = frame.maxY - targetH
+
+            if let screen = panel.screen ?? NSScreen.main {
+                let vis = screen.visibleFrame
+                let inset: CGFloat = 16.0
+                newX = min(max(vis.minX + inset, newX), max(vis.minX + inset, vis.maxX - targetW - inset))
+                newY = min(max(vis.minY + inset, newY), max(vis.minY + inset, vis.maxY - targetH - inset))
+            }
+
+            let newFrame = NSRect(x: newX, y: newY, width: targetW, height: targetH)
             panel.setFrame(newFrame, display: true)
         }
     }
@@ -197,9 +231,22 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
         frame.origin.y -= heightDiff
         frame.size.width = newWidth
         frame.size.height = newHeight
+
+        if let screen = panel.screen ?? NSScreen.main {
+            let vis = screen.visibleFrame
+            if frame.minY < vis.minY + 8 {
+                let overflow = (vis.minY + 8) - frame.minY
+                frame.origin.y = vis.minY + 8
+                frame.size.height = max(minH, frame.size.height - overflow)
+            }
+            if frame.maxX > vis.maxX - 8 {
+                frame.size.width = max(minW, vis.maxX - 8 - frame.minX)
+            }
+        }
+
         panel.setFrame(frame, display: true, animate: false)
 
-        expandedSize = CGSize(width: newWidth, height: newHeight)
+        expandedSize = frame.size
         DispatchQueue.main.async { [weak self] in
             self?.onFrameChanged?(frame)
         }
@@ -219,29 +266,29 @@ public final class NotePanelController: NSObject, NSWindowDelegate {
     }
 
     public func windowDidMove(_: Notification) {
-        guard let panel = panel, let screen = panel.screen else { return }
+        guard let panel = panel, let screen = panel.screen ?? NSScreen.main else { return }
         var frame = panel.frame
         let visibleFrame = screen.visibleFrame
-        let threshold: CGFloat = 20.0
+        let inset: CGFloat = 8.0
 
-        var snapped = false
-        if abs(frame.minX - visibleFrame.minX) < threshold {
-            frame.origin.x = visibleFrame.minX
-            snapped = true
-        } else if abs(frame.maxX - visibleFrame.maxX) < threshold {
-            frame.origin.x = visibleFrame.maxX - frame.width
-            snapped = true
+        var adjusted = false
+        if frame.minX < visibleFrame.minX + inset {
+            frame.origin.x = visibleFrame.minX + inset
+            adjusted = true
+        } else if frame.maxX > visibleFrame.maxX - inset {
+            frame.origin.x = max(visibleFrame.minX + inset, visibleFrame.maxX - frame.width - inset)
+            adjusted = true
         }
 
-        if abs(frame.minY - visibleFrame.minY) < threshold {
-            frame.origin.y = visibleFrame.minY
-            snapped = true
-        } else if abs(frame.maxY - visibleFrame.maxY) < threshold {
-            frame.origin.y = visibleFrame.maxY - frame.height
-            snapped = true
+        if frame.maxY > visibleFrame.maxY - inset {
+            frame.origin.y = max(visibleFrame.minY + inset, visibleFrame.maxY - frame.height - inset)
+            adjusted = true
+        } else if frame.minY < visibleFrame.minY + inset {
+            frame.origin.y = visibleFrame.minY + inset
+            adjusted = true
         }
 
-        if snapped {
+        if adjusted {
             panel.setFrame(frame, display: true, animate: false)
         }
 

@@ -98,7 +98,7 @@ public final class AppState {
                 }
             }
 
-            // Migrate any old undersized notes to minimum viable dimensions
+            // Migrate any old undersized or off-screen notes to safe visible bounds
             for i in 0 ..< cleaned.count {
                 var modified = false
                 if cleaned[i].height < NotePanelController.minimumExpandedHeight {
@@ -109,6 +109,24 @@ public final class AppState {
                     cleaned[i].width = 280
                     modified = true
                 }
+
+                if let screen = NSScreen.main {
+                    let vis = screen.visibleFrame
+                    let minX = vis.minX + 16
+                    let maxX = max(minX, vis.maxX - cleaned[i].width - 16)
+                    let minY = vis.minY + 16
+                    let maxY = max(minY, vis.maxY - cleaned[i].height - 16)
+
+                    let clampedX = min(max(minX, cleaned[i].frameX), maxX)
+                    let clampedY = min(max(minY, cleaned[i].frameY), maxY)
+
+                    if clampedX != cleaned[i].frameX || clampedY != cleaned[i].frameY {
+                        cleaned[i].frameX = clampedX
+                        cleaned[i].frameY = clampedY
+                        modified = true
+                    }
+                }
+
                 if modified {
                     let n = cleaned[i]
                     Task { [repository] in
@@ -146,10 +164,17 @@ public final class AppState {
         guard let screen = NSScreen.main else { return }
         let visible = screen.visibleFrame
 
-        // Cascade positions slightly
-        let offset = CGFloat(activeControllers.count * 30)
-        let x = visible.minX + 120 + offset
-        let y = max(visible.minY + 40, visible.maxY - 380 - offset)
+        // Cascade positions safely inside visible bounds
+        let noteWidth: CGFloat = 280
+        let noteHeight: CGFloat = 320
+        let offset = CGFloat((activeControllers.count % 8) * 30)
+        let minX = visible.minX + 16
+        let maxX = max(minX, visible.maxX - noteWidth - 16)
+        let minY = visible.minY + 16
+        let maxY = max(minY, visible.maxY - noteHeight - 16)
+
+        let x = min(visible.minX + 120 + offset, maxX)
+        let y = max(minY, visible.maxY - noteHeight - 60 - offset)
 
         let note = Note(
             title: title,
@@ -157,8 +182,8 @@ public final class AppState {
             color: NoteColor.butter,
             frameX: x,
             frameY: y,
-            width: 280,
-            height: 320
+            width: noteWidth,
+            height: noteHeight
         )
 
         notes.insert(note, at: 0)
@@ -188,15 +213,19 @@ public final class AppState {
         let initialWidth = max(NotePanelController.minimumExpandedWidth, max(280, note.width))
         let initialHeight = max(NotePanelController.minimumExpandedHeight, max(320, note.height))
 
+        let minX = visible.minX + 16
+        let maxX = max(minX, visible.maxX - initialWidth - 16)
+        let minY = visible.minY + 16
+        let maxY = max(minY, visible.maxY - initialHeight - 16)
+
         var posX = note.frameX
         var posY = note.frameY
 
-        // Ensure note is placed safely inside the visible screen bounds
-        if posX < visible.minX || posX > (visible.maxX - 100) ||
-           posY < visible.minY || posY > (visible.maxY - 50) {
-            let offset = CGFloat(activeControllers.count * 25)
-            posX = min(visible.minX + 120 + offset, visible.maxX - initialWidth - 20)
-            posY = max(visible.maxY - initialHeight - 80 - offset, visible.minY + 20)
+        // Ensure note is placed safely 100% inside the visible screen bounds
+        if posX < minX || posX > maxX || posY < minY || posY > maxY {
+            let offset = CGFloat((activeControllers.count % 8) * 25)
+            posX = min(visible.minX + 120 + offset, maxX)
+            posY = max(visible.maxY - initialHeight - 60 - offset, minY)
             if let idx = notes.firstIndex(where: { $0.id == note.id }) {
                 notes[idx].frameX = posX
                 notes[idx].frameY = posY
@@ -429,6 +458,7 @@ public final class AppState {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if let controller = self.activeControllers[id] {
+                controller.ensureOnScreen()
                 if let vm = self.activeViewModels[id], vm.note.isCollapsed {
                     vm.toggleCollapse()
                 } else if let idx = self.notes.firstIndex(where: { $0.id == id }), self.notes[idx].isCollapsed {
@@ -448,6 +478,7 @@ public final class AppState {
                 n.isCollapsed = false
                 self.openFloatingNote(n, activateApp: activateApp)
                 if let controller = self.activeControllers[id] {
+                    controller.ensureOnScreen()
                     controller.panel?.orderFrontRegardless()
                     controller.panel?.makeKeyAndOrderFront(nil)
                     if activateApp {

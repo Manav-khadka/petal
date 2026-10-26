@@ -25,7 +25,7 @@ dmg: release
     rm -f Petal.dmg Petal-v1.0.0-macOS-Universal.dmg Petal-v1.0.0-macOS-Universal.zip
     hdiutil create -volname "Petal" -srcfolder /tmp/petal_dmg -ov -format UDZO Petal.dmg
     cp Petal.dmg Petal-v1.0.0-macOS-Universal.dmg
-    (cd build_release/Build/Products/Release && ditto -c -k --keepParent Petal.app "$$OLDPWD/Petal-v1.0.0-macOS-Universal.zip")
+    ditto -c -k --keepParent /tmp/petal_dmg/Petal.app Petal-v1.0.0-macOS-Universal.zip
     rm -rf /tmp/petal_dmg
 
 test:

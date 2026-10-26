@@ -69,6 +69,7 @@ public struct NoteCardView: View {
         }
         .environment(\.colorScheme, viewModel.note.color.requiresDarkText ? .light : .dark)
         .preferredColorScheme(viewModel.note.color.requiresDarkText ? .light : .dark)
+        .ignoresSafeArea()
     }
 
     // MARK: - Collapsed View (Desktop Pill)
