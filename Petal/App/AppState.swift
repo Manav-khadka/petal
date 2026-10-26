@@ -22,6 +22,11 @@ public final class AppState {
 
     public let menuBarController = MenuBarController()
 
+    private var notifiedTimerIDs = Set<UUID>()
+    private var lastAlarmMinuteKey: String?
+    private var notifiedReminderIDs = Set<UUID>()
+    private var eventsMonitorTimer: Timer?
+
     private init() {
         repository = FileNoteRepository()
         backupService = DriveSyncManager()
@@ -47,6 +52,8 @@ public final class AppState {
         }
 
         setupShortcuts()
+        MacNotificationManager.shared.requestAuthorization()
+        startScheduledEventsMonitor()
         await loadNotes()
 
         if notes.isEmpty {
@@ -658,6 +665,72 @@ public final class AppState {
         for s in [sample1, sample2, sample3] {
             notes.append(s)
             try? await repository.save(s)
+        }
+    }
+
+    private func startScheduledEventsMonitor() {
+        eventsMonitorTimer?.invalidate()
+        eventsMonitorTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.checkScheduledEvents()
+            }
+        }
+    }
+
+    private func checkScheduledEvents() {
+        let now = Date()
+        let cal = Calendar.current
+        let currentHour = cal.component(.hour, from: now)
+        let currentMinute = cal.component(.minute, from: now)
+        let currentWeekday = cal.component(.weekday, from: now)
+
+        for note in notes {
+            // 1. Timers
+            if let timer = note.timerSession, timer.isRunning, let end = timer.endDate {
+                if now >= end {
+                    if !notifiedTimerIDs.contains(timer.id) {
+                        notifiedTimerIDs.insert(timer.id)
+                        SoundPlayer.shared.playTimerFinished()
+                        bringNoteToFront(note.id)
+                        if let vm = activeViewModels[note.id] {
+                            vm.isSparkling = true
+                        }
+                    }
+                }
+            }
+
+            // 2. Alarms
+            if let alarm = note.alarm, alarm.isEnabled {
+                let matchesTime = (alarm.hour == currentHour && alarm.minute == currentMinute)
+                let matchesDay = alarm.repeatDays.isEmpty || alarm.repeatDays.contains(currentWeekday)
+                if matchesTime && matchesDay {
+                    let key = "\(note.id.uuidString)_\(currentHour):\(currentMinute)"
+                    if lastAlarmMinuteKey != key {
+                        lastAlarmMinuteKey = key
+                        SoundPlayer.shared.play(soundName: alarm.soundName)
+                        SoundPlayer.shared.playAlarmRinging()
+                        bringNoteToFront(note.id)
+                        if let vm = activeViewModels[note.id] {
+                            vm.isSparkling = true
+                        }
+                    }
+                }
+            }
+
+            // 3. Reminders
+            if let reminder = note.reminder {
+                let diff = now.timeIntervalSince(reminder.targetDate)
+                if diff >= 0 && diff < 60 {
+                    if !notifiedReminderIDs.contains(note.id) {
+                        notifiedReminderIDs.insert(note.id)
+                        SoundPlayer.shared.playReminderChime()
+                        bringNoteToFront(note.id)
+                        if let vm = activeViewModels[note.id] {
+                            vm.isSparkling = true
+                        }
+                    }
+                }
+            }
         }
     }
 }

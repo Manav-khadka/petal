@@ -10,10 +10,15 @@ public final class MacNotificationManager: NSObject, NotificationScheduler, @unc
         super.init()
         UNUserNotificationCenter.current().delegate = self
         setupCategories()
+        requestAuthorization()
     }
 
     public func requestAuthorization() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            #if DEBUG
+            print("Notification authorization granted: \(granted), error: \(String(describing: error))")
+            #endif
+        }
     }
 
     private func setupCategories() {
@@ -36,8 +41,10 @@ public final class MacNotificationManager: NSObject, NotificationScheduler, @unc
         at date: Date,
         repeatOption _: Reminder.RepeatOption
     ) async throws {
+        requestAuthorization()
+
         let content = UNMutableNotificationContent()
-        content.title = "Reminder"
+        content.title = "🌸 Petal Reminder"
         content.body = title.isEmpty ? "Your Petal note reminder is due!" : title
         content.sound = .default
         content.categoryIdentifier = "PETAL_REMINDER"
@@ -53,12 +60,18 @@ public final class MacNotificationManager: NSObject, NotificationScheduler, @unc
         try await UNUserNotificationCenter.current().add(request)
     }
 
-    public func scheduleAlarm(for noteID: Note.ID, title: String, at date: Date, soundName _: String) async throws {
+    public func scheduleAlarm(for noteID: Note.ID, title: String, at date: Date, soundName: String) async throws {
+        requestAuthorization()
+
         let content = UNMutableNotificationContent()
-        content.title = "Petal Alarm"
+        content.title = "⏰ Petal Alarm"
         content.body = title.isEmpty ? "Time to wake up or check your note!" : title
-        content.sound = .defaultCritical
-        content.userInfo = ["noteID": noteID.uuidString, "isAlarm": true]
+        content.sound = .default
+        content.userInfo = [
+            "noteID": noteID.uuidString,
+            "isAlarm": true,
+            "soundName": soundName
+        ]
 
         let interval = max(1, date.timeIntervalSinceNow)
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
@@ -71,10 +84,16 @@ public final class MacNotificationManager: NSObject, NotificationScheduler, @unc
     }
 
     public func scheduleTimer(for noteID: Note.ID, title: String, endingAt date: Date) async throws {
+        requestAuthorization()
+
         let content = UNMutableNotificationContent()
-        content.title = "Timer Finished"
-        content.body = title.isEmpty ? "Your timer is up!" : title
+        content.title = "⏳ Timer Complete"
+        content.body = title.isEmpty ? "Your focus session is finished!" : title
         content.sound = .default
+        content.userInfo = [
+            "noteID": noteID.uuidString,
+            "isTimer": true
+        ]
 
         let interval = max(1, date.timeIntervalSinceNow)
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
@@ -97,9 +116,38 @@ public final class MacNotificationManager: NSObject, NotificationScheduler, @unc
 
     public func userNotificationCenter(
         _: UNUserNotificationCenter,
-        willPresent _: UNNotification,
+        willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound])
+        let isAlarm = (notification.request.content.userInfo["isAlarm"] as? Bool) ?? false
+        let isTimer = (notification.request.content.userInfo["isTimer"] as? Bool) ?? false ||
+            notification.request.identifier.starts(with: "timer_")
+        let soundName = (notification.request.content.userInfo["soundName"] as? String) ?? "Gentle Chime"
+
+        DispatchQueue.main.async {
+            if isAlarm {
+                SoundPlayer.shared.play(soundName: soundName)
+                SoundPlayer.shared.playAlarmRinging()
+            } else if isTimer {
+                SoundPlayer.shared.playTimerFinished()
+            } else {
+                SoundPlayer.shared.playReminderChime()
+            }
+        }
+        completionHandler([.banner, .sound, .badge, .list])
+    }
+
+    public func userNotificationCenter(
+        _: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        if let idStr = response.notification.request.content.userInfo["noteID"] as? String,
+           let uuid = UUID(uuidString: idStr) {
+            DispatchQueue.main.async {
+                AppState.shared.bringNoteToFront(uuid)
+            }
+        }
+        completionHandler()
     }
 }

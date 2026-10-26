@@ -91,6 +91,9 @@ public struct AlarmPopoverView: View {
                 }
             }
             .pickerStyle(.menu)
+            .onChange(of: selectedSound) { _, newSound in
+                SoundPlayer.shared.play(soundName: newSound)
+            }
 
             HStack {
                 Spacer()
