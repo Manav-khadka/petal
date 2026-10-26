@@ -343,6 +343,17 @@ public final class AppState {
         )
     }
 
+    public func openCalendar() {
+        CalendarWindowController.shared.show(
+            with: CalendarView(
+                appState: self,
+                onOpenNote: { [weak self] noteID in
+                    self?.bringNoteToFront(noteID)
+                }
+            )
+        )
+    }
+
     public func openSettings() {
         let settingsWindow = NSWindow(
             contentRect: NSRect(x: 200, y: 200, width: 480, height: 360),
@@ -677,6 +688,7 @@ public final class AppState {
         sc.onQuickOpen = { [weak self] in self?.toggleQuickOpen() }
         sc.onToggleAllNotes = { [weak self] in self?.toggleAllNotes() }
         sc.onStackList = { [weak self] in self?.openAllNotesStackList() }
+        sc.onCalendar = { [weak self] in self?.openCalendar() }
         sc.onCollapseAll = { [weak self] in self?.collapseAllNotes() }
         sc.onExpandAll = { [weak self] in self?.expandAllNotes() }
     }

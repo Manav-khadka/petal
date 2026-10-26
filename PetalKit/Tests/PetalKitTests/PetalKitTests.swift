@@ -120,4 +120,36 @@ final class PetalKitTests: XCTestCase {
         let restored = try await syncManager.restore(snapshotID: snapshot.id)
         XCTAssertEqual(restored.first?.title, "My Note (restored)")
     }
+
+    func testAgendaItemsFutureAndPast() {
+        let now = Date()
+        let pastDate = now.addingTimeInterval(-3600)
+        let futureDate = now.addingTimeInterval(3600)
+
+        let note1 = Note(
+            title: "Task Note",
+            checklist: [
+                ChecklistItem(text: "Finish presentation", isDone: false),
+                ChecklistItem(text: "Send recap email", isDone: true)
+            ],
+            reminder: Reminder(targetDate: futureDate)
+        )
+
+        let note2 = Note(
+            title: "Past Reminder Note",
+            reminder: Reminder(targetDate: pastDate, isCompleted: true)
+        )
+
+        let notes = [note1, note2]
+        let allAgenda = notes.agendaItems()
+        XCTAssertEqual(allAgenda.count, 4) // 2 reminders + 2 tasks
+
+        let upcoming = notes.upcomingAgendaItems(from: now)
+        XCTAssertTrue(upcoming.contains(where: { $0.title == "Task Note" && $0.type == .reminder }))
+        XCTAssertTrue(upcoming.contains(where: { $0.title == "Finish presentation" && $0.type == .task }))
+
+        let past = notes.pastAgendaItems(from: now)
+        XCTAssertTrue(past.contains(where: { $0.title == "Past Reminder Note" }))
+        XCTAssertTrue(past.contains(where: { $0.title == "Send recap email" }))
+    }
 }

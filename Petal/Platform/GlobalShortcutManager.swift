@@ -35,6 +35,7 @@ public final class GlobalShortcutManager {
     public var onQuickOpen: (() -> Void)?
     public var onToggleAllNotes: (() -> Void)?
     public var onStackList: (() -> Void)?
+    public var onCalendar: (() -> Void)?
     public var onCollapseAll: (() -> Void)?
     public var onExpandAll: (() -> Void)?
 
@@ -53,6 +54,8 @@ public final class GlobalShortcutManager {
         case collapseAll = 8
         case expandAll = 9
         case toggleAll = 10
+        case calendar = 11
+        case calendarCmdOpt = 12
     }
 
     private init() {
@@ -103,6 +106,12 @@ public final class GlobalShortcutManager {
 
         // 6. Toggle All Notes: ⌃⌥H
         registerCarbonHotKey(id: .toggleAll, keyCode: UInt32(kVK_ANSI_H), modifiers: UInt32(controlKey | optionKey))
+
+        // 7. Calendar & Agenda:
+        // ⌃⌥K
+        registerCarbonHotKey(id: .calendar, keyCode: UInt32(kVK_ANSI_K), modifiers: UInt32(controlKey | optionKey))
+        // ⌥⌘K
+        registerCarbonHotKey(id: .calendarCmdOpt, keyCode: UInt32(kVK_ANSI_K), modifiers: UInt32(optionKey | cmdKey))
     }
 
     private func registerCarbonHotKey(id: HotKeyID, keyCode: UInt32, modifiers: UInt32) {
@@ -135,6 +144,8 @@ public final class GlobalShortcutManager {
             onExpandAll?()
         case HotKeyID.toggleAll.rawValue:
             onToggleAllNotes?()
+        case HotKeyID.calendar.rawValue, HotKeyID.calendarCmdOpt.rawValue:
+            onCalendar?()
         default:
             break
         }
@@ -164,6 +175,12 @@ public final class GlobalShortcutManager {
         // ⌘L -> Stack List when app is key
         if flags == .command && chars == "l" {
             onStackList?()
+            return true
+        }
+
+        // ⌥⌘K or ⌃⌥K -> Calendar
+        if (flags.contains([.command, .option]) || flags.contains([.control, .option])) && chars == "k" {
+            onCalendar?()
             return true
         }
 

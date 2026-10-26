@@ -124,8 +124,22 @@ public struct CalendarPopoverView: View {
                 }
             }
 
-            // Close button
+            // Footer
             HStack {
+                Button(action: {
+                    viewModel.activePopover = nil
+                    AppState.shared.openCalendar()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar.badge.clock")
+                        Text("All Notes Agenda ↗")
+                    }
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(Color(hex: "#2563EB"))
+                }
+                .buttonStyle(.plain)
+                .help("Open full master calendar with all tasks and reminders (⌥⌘K)")
+
                 Spacer()
                 Button("Done") {
                     viewModel.activePopover = nil

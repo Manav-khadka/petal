@@ -369,6 +369,19 @@ public struct MenuBarPopoverView: View {
             .buttonStyle(.plain)
 
             Button(action: {
+                AppState.shared.openCalendar()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 10))
+                    Text("Calendar")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                }
+                .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            Button(action: {
                 AppState.shared.openAllNotesStackList()
             }) {
                 HStack(spacing: 4) {

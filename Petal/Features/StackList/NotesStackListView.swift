@@ -159,6 +159,26 @@ public struct NotesStackListView: View {
 
             Spacer()
 
+            // Calendar & Agenda button
+            Button(action: {
+                appState.openCalendar()
+                onDismiss()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Calendar")
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                }
+                .foregroundColor(Color(hex: "#2563EB"))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(Color.blue.opacity(0.08))
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+            .help("Open Master Calendar & Agenda with all tasks and reminders (⌥⌘K)")
+
             // Collapse All button
             Button(action: {
                 appState.collapseAllNotes()
